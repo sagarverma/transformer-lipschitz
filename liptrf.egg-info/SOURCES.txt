@@ -1,0 +1,7 @@
+README.md
+setup.py
+liptrf.egg-info/PKG-INFO
+liptrf.egg-info/SOURCES.txt
+liptrf.egg-info/dependency_links.txt
+liptrf.egg-info/requires.txt
+liptrf.egg-info/top_level.txt

@@ -17,7 +17,9 @@ setup(
   install_requires=[
     'einops>=0.4.1',
     'torch>=1.10',
-    'torchvision'
+    'torchvision',
+    'jupyterlab',
+    'matplotlib'
   ],
   setup_requires=[
     'pytest-runner',

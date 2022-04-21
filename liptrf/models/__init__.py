@@ -1,3 +1,3 @@
-from vit import ViT
+from .vit import ViT
 
 __all__ = ["ViT"]

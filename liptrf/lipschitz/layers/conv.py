@@ -56,13 +56,13 @@ class Conv2dEx(nn.Conv2d):
         if not self.u:
             self.u = torch.randn((1,*mu.size()[1:])).to(self.device)
 
-        if self.bias:
+        if self.bias is not None:
             b = torch.zeros_like(self.bias)
         else:
             b = None 
 
         for i in range(self.sniter):
-            u1 = F.conv2d(self.layer, b, stride=self.stride, padding=self.padding)
+            u1 = F.conv2d(self.u, self.weight, b, stride=self.stride, padding=self.padding)
             u1_norm = u1.norm(2)
             v = u1 / (u1_norm + self.eps)
 

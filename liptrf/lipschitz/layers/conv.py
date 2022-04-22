@@ -62,6 +62,7 @@ class Conv2dEx(nn.Conv2d):
             b = None 
 
         for i in range(self.sniter):
+            # We do not use forward function because bias b is different
             u1 = F.conv2d(self.u, self.weight, b, stride=self.stride, padding=self.padding)
             u1_norm = u1.norm(2)
             v = u1 / (u1_norm + self.eps)
@@ -77,7 +78,8 @@ class Conv2dEx(nn.Conv2d):
 
             if (self.u - u_old).norm(2) < 1e-5:
                 break
-
+            
+        # We do not use forward function because bias b is different
         out = (v*(F.conv2d(self.u, self.weight, b, stride=self.stride, padding=self.padding))).view(v.size()[0],-1).sum(1)[0]
 
         return out

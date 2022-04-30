@@ -19,7 +19,8 @@ setup(
     'torch>=1.10',
     'torchvision',
     'jupyterlab',
-    'matplotlib'
+    'matplotlib',
+    'timm==0.5.4'
   ],
   setup_requires=[
     'pytest-runner',

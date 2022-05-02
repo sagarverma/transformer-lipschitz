@@ -12,15 +12,29 @@ def pair(t):
 # classes
 
 class PreNorm(nn.Module):
-    def __init__(self, dim, fn):
+    def __init__(
+        self, 
+        dim: int, 
+        fn: nn.Module
+    ) -> None:
         super().__init__()
         self.norm = nn.LayerNorm(dim)
         self.fn = fn
-    def forward(self, x, **kwargs):
+
+    def forward(
+        self, 
+        x: torch.tensor, 
+        **kwargs
+    ) -> torch.tensor:
         return self.fn(self.norm(x), **kwargs)
 
 class FeedForward(nn.Module):
-    def __init__(self, dim, hidden_dim, dropout = 0.):
+    def __init__(
+        self, 
+        dim: int, 
+        hidden_dim: int, 
+        dropout: float = 0.
+    ) -> None:
         super().__init__()
         self.net = nn.Sequential(
             nn.Linear(dim, hidden_dim),
@@ -29,11 +43,66 @@ class FeedForward(nn.Module):
             nn.Linear(hidden_dim, dim),
             nn.Dropout(dropout)
         )
-    def forward(self, x):
+
+    def forward(
+        self, 
+        x: torch.tensor
+    ) -> torch.tensor:
         return self.net(x)
 
+class L2Attention(nn.Module):
+    def __init__(
+        self, 
+        dim: int, 
+        heads: int = 8, 
+        dim_head: int = 64, 
+        dropout: float = 0.
+    ) -> None:
+        super().__init__()
+        inner_dim = dim_head *  heads
+        project_out = not (heads == 1 and dim_head == dim)
+
+        self.heads = heads
+        self.scale = dim_head ** -0.5
+
+        self.attend = nn.Softmax(dim = -1)
+        self.dropout = nn.Dropout(dropout)
+
+        self.to_qv = nn.Linear(dim, inner_dim * 2, bias = False)
+
+        self.to_out = nn.Sequential(
+            nn.Linear(inner_dim, dim),
+            nn.Dropout(dropout)
+        ) if project_out else nn.Identity()
+
+    def forward(
+        self, 
+        x: torch.tensor
+    ) -> torch.tensor:
+        qv = self.to_qv(x).chunk(2, dim = -1)
+        q, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h = self.heads), qv)
+
+        dots = q @ q.transpose(-2, -1)
+        q_l2 = torch.pow(q.norm(dim=-1, p=2), 2).unsqueeze(-1)
+        k_l2 = torch.pow(q.norm(dim=-1, p=2), 2).unsqueeze(-1)
+        q_l2 = torch.matmul(q_l2, torch.ones(q_l2.shape).transpose(-1, -2))
+        k_l2 = torch.matmul(torch.ones(k_l2.shape), k_l2.transpose(-1, -2))
+        
+        attn = (-1 * (q_l2 - 2 * dots + k_l2) * self.scale).softmax(dim=-1)
+        attn = self.dropout(attn)
+        
+        out = torch.matmul(attn, v)
+        out = rearrange(out, 'b h n d -> b n (h d)')
+        return self.to_out(out)
+
 class Attention(nn.Module):
-    def __init__(self, dim, heads = 8, dim_head = 64, dropout = 0.):
+    def __init__(
+        self, 
+        dim: int, 
+        heads: int = 8, 
+        dim_head: int = 64, 
+        dropout: float = 0.
+    ) -> None:
         super().__init__()
         inner_dim = dim_head *  heads
         project_out = not (heads == 1 and dim_head == dim)
@@ -51,7 +120,10 @@ class Attention(nn.Module):
             nn.Dropout(dropout)
         ) if project_out else nn.Identity()
 
-    def forward(self, x):
+    def forward(
+        self, 
+        x: torch.tensor
+    ) -> torch.tensor:
         qkv = self.to_qkv(x).chunk(3, dim = -1)
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h = self.heads), qkv)
 
@@ -65,22 +137,50 @@ class Attention(nn.Module):
         return self.to_out(out)
 
 class Transformer(nn.Module):
-    def __init__(self, dim, depth, heads, dim_head, mlp_dim, dropout = 0.):
+    def __init__(
+        self, 
+        dim: int, 
+        depth: int, 
+        heads: int, 
+        dim_head: int, 
+        mlp_dim: int, 
+        dropout: float = 0., 
+        attention: nn.Module = Attention
+    ) -> None:
         super().__init__()
         self.layers = nn.ModuleList([])
         for _ in range(depth):
             self.layers.append(nn.ModuleList([
-                PreNorm(dim, Attention(dim, heads = heads, dim_head = dim_head, dropout = dropout)),
+                PreNorm(dim, attention(dim, heads = heads, dim_head = dim_head, dropout = dropout)),
                 PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout))
             ]))
-    def forward(self, x):
+
+    def forward(
+        self, 
+        x: torch.tensor
+    ) -> torch.tensor:
         for attn, ff in self.layers:
             x = attn(x) + x
             x = ff(x) + x
         return x
 
 class ViT(nn.Module):
-    def __init__(self, *, image_size, patch_size, num_classes, dim, depth, heads, mlp_dim, pool = 'cls', channels = 3, dim_head = 64, dropout = 0., emb_dropout = 0.):
+    def __init__(
+        self, 
+        *, 
+        image_size: int, 
+        patch_size: int, 
+        num_classes: int, 
+        dim: int, 
+        depth: int, 
+        heads: int, 
+        mlp_dim: int, 
+        pool: str = 'cls', 
+        channels: int = 3, 
+        dim_head: int = 64, 
+        dropout: int = 0., 
+        emb_dropout: int = 0.
+    ) -> None:
         super().__init__()
         image_height, image_width = pair(image_size)
         patch_height, patch_width = pair(patch_size)
@@ -110,7 +210,10 @@ class ViT(nn.Module):
             nn.Linear(dim, num_classes)
         )
 
-    def forward(self, img):
+    def forward(
+        self, 
+        img: torch.tensor
+    ) -> torch.tensor:
         x = self.to_patch_embedding(img)
         b, n, _ = x.shape
 

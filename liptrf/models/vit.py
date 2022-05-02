@@ -145,10 +145,14 @@ class Transformer(nn.Module):
         dim_head: int, 
         mlp_dim: int, 
         dropout: float = 0., 
-        attention: nn.Module = Attention
+        attention_type: str = "DP"
     ) -> None:
         super().__init__()
         self.layers = nn.ModuleList([])
+        attention = Attention 
+        if attention_type == "L2":
+            attention = L2Attention
+
         for _ in range(depth):
             self.layers.append(nn.ModuleList([
                 PreNorm(dim, attention(dim, heads = heads, dim_head = dim_head, dropout = dropout)),
@@ -179,7 +183,8 @@ class ViT(nn.Module):
         channels: int = 3, 
         dim_head: int = 64, 
         dropout: int = 0., 
-        emb_dropout: int = 0.
+        emb_dropout: int = 0.,
+        attention_type: str = "DP"
     ) -> None:
         super().__init__()
         image_height, image_width = pair(image_size)
@@ -200,7 +205,7 @@ class ViT(nn.Module):
         self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
         self.dropout = nn.Dropout(emb_dropout)
 
-        self.transformer = Transformer(dim, depth, heads, dim_head, mlp_dim, dropout)
+        self.transformer = Transformer(dim, depth, heads, dim_head, mlp_dim, dropout, attention_type)
 
         self.pool = pool
         self.to_latent = nn.Identity()

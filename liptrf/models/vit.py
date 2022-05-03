@@ -1,4 +1,5 @@
 import numpy as np 
+from scipy.special import lambertw 
 
 import torch
 from torch import nn
@@ -56,35 +57,35 @@ class FeedForward(nn.Module):
     def lipschitz(self):
         l1 = norm(self.net[0].weight, ord=2)
         l2 = norm(self.net[3].weight, ord=2)
+        # print (f"MLP: {1.12 * l1 * l2}, {l1}, {l2}")
         return 1.12 * l1 * l2
 
 class L2Attention(nn.Module):
     def __init__(
         self, 
         dim: int, 
-        heads: int = 8, 
-        dim_head: int = 64, 
+        heads: int = 8,
         dropout: float = 0.,
         n_value: int = 1
     ) -> None:
         super().__init__()
+        assert dim % heads == 0, 'dim should be divisible by heads'
         self.dim = dim 
         self.n_value = n_value
-        inner_dim = dim_head *  heads
-        project_out = not (heads == 1 and dim_head == dim)
-
         self.heads = heads
+
+        dim_head = dim //  heads
         self.scale = dim_head ** -0.5
 
         self.attend = nn.Softmax(dim = -1)
         self.dropout = nn.Dropout(dropout)
 
-        self.to_qv = nn.Linear(dim, inner_dim * 2, bias = False)
+        self.to_qv = nn.Linear(dim, dim * 2, bias = False)
 
         self.to_out = nn.Sequential(
-            nn.Linear(inner_dim, dim),
+            nn.Linear(dim, dim),
             nn.Dropout(dropout)
-        ) if project_out else nn.Identity()
+        ) 
 
     def forward(
         self, 
@@ -95,8 +96,8 @@ class L2Attention(nn.Module):
         q, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h = self.heads), qv)
     
         dots = q @ q.transpose(-2, -1)
-        q_l2 = torch.pow(norm(q, ord=2), 2).unsqueeze(-1)
-        k_l2 = torch.pow(norm(q, ord=2), 2).unsqueeze(-1)
+        q_l2 = torch.pow(norm(q, dim=-1, ord=2), 2).unsqueeze(-1)
+        k_l2 = torch.pow(norm(q, dim=-1, ord=2), 2).unsqueeze(-1)
         q_l2 = torch.matmul(q_l2, torch.ones(q_l2.shape).transpose(-1, -2).cuda())
         k_l2 = torch.matmul(torch.ones(k_l2.shape).cuda(), k_l2.transpose(-1, -2))
         
@@ -111,27 +112,30 @@ class L2Attention(nn.Module):
         N = self.n_value 
         D = self.dim 
         H = self.heads
-        W_Qh = self.to_qv.weight[:512, :]
-        W_Vh = self.to_qv.weight[512:, :]
+        W_Q = self.to_qv.weight[:D, :]
+        W_V = self.to_qv.weight[D:, :]
         W_o = self.to_out[0].weight
         v1 = np.sqrt(N / (D / H))
-        v2 = 4 * 1 / ((N-1) * np.exp(N)) + 1
-        v3 = torch.sqrt(torch.pow(norm(W_Qh, ord=2), 2) * torch.pow(norm(W_Vh, ord=2), 2)) * norm(W_o, ord=2)
-
+        v2 = 4 * lambertw(N / np.exp(1)).real + 1
+        v3 = 0
+        w = D//H
+        for i in range(H):
+            v3 += torch.pow(norm(W_Q[:, i*w: (i +1) * w], ord=2), 2) * torch.pow(norm(W_V[:, i*w: (i +1) * w], ord=2), 2)
+        v3 = torch.sqrt(v3) * norm(W_o, ord=2)
         return v1 * v2 * v3
+        # return 0
 
 class Attention(nn.Module):
     def __init__(
         self, 
         dim: int, 
         heads: int = 8, 
-        dim_head: int = 64, 
         dropout: float = 0.,
         n_value: int = 1
     ) -> None:
         super().__init__()
-        inner_dim = dim_head *  heads
-        project_out = not (heads == 1 and dim_head == dim)
+        assert dim % heads == 0, 'dim should be divisible by heads'
+        dim_head = dim //  heads
 
         self.heads = heads
         self.scale = dim_head ** -0.5
@@ -139,12 +143,12 @@ class Attention(nn.Module):
         self.attend = nn.Softmax(dim = -1)
         self.dropout = nn.Dropout(dropout)
 
-        self.to_qkv = nn.Linear(dim, inner_dim * 3, bias = False)
+        self.to_qkv = nn.Linear(dim, dim * 3, bias = False)
 
         self.to_out = nn.Sequential(
-            nn.Linear(inner_dim, dim),
+            nn.Linear(dim, dim),
             nn.Dropout(dropout)
-        ) if project_out else nn.Identity()
+        ) 
 
     def forward(
         self, 
@@ -167,9 +171,8 @@ class Transformer(nn.Module):
         self, 
         dim: int, 
         depth: int, 
-        heads: int, 
-        dim_head: int, 
-        mlp_dim: int, 
+        heads: int,
+        mlp_ratio: int = 4,  
         dropout: float = 0., 
         attention_type: str = "DP",
         n_value: int = 1
@@ -180,10 +183,12 @@ class Transformer(nn.Module):
         if attention_type == "L2":
             attention = L2Attention
 
+        mlp_hidden_dim = int(dim * mlp_ratio)
+
         for _ in range(depth):
             self.layers.append(nn.ModuleList([
-                PreNorm(dim, attention(dim, heads = heads, dim_head = dim_head, dropout = dropout, n_value = n_value)),
-                PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout))
+                PreNorm(dim, attention(dim, heads = heads, dropout = dropout, n_value = n_value)),
+                PreNorm(dim, FeedForward(dim, mlp_hidden_dim, dropout = dropout))
             ]))
 
     def forward(
@@ -198,6 +203,7 @@ class Transformer(nn.Module):
     def lipschitz(self):
         total = 1
         for attn, ff in self.layers:
+            # print (f"Transformer: {(attn.fn.lipschitz() + 1) * (ff.fn.lipschitz() + 1)}")
             total *= ((attn.fn.lipschitz() + 1) * (ff.fn.lipschitz() + 1))
 
         return total 
@@ -211,11 +217,10 @@ class ViT(nn.Module):
         num_classes: int, 
         dim: int, 
         depth: int, 
-        heads: int, 
-        mlp_dim: int, 
+        heads: int,
+        mlp_ratio: float = 4.,
         pool: str = 'cls', 
         channels: int = 3, 
-        dim_head: int = 64, 
         dropout: int = 0., 
         emb_dropout: int = 0.,
         attention_type: str = "DP"
@@ -239,9 +244,8 @@ class ViT(nn.Module):
         self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
         self.dropout = nn.Dropout(emb_dropout)
 
-        self.transformer = Transformer(dim, depth, heads, 
-                                       dim_head, mlp_dim, dropout, 
-                                       attention_type, num_patches+1)
+        self.transformer = Transformer(dim, depth, heads, mlp_ratio, dropout, 
+                                       attention_type, num_patches)
 
         self.pool = pool
         self.to_latent = nn.Identity()
@@ -274,5 +278,5 @@ class ViT(nn.Module):
         v1 = norm(self.to_patch_embedding[1].weight, ord=2)
         v2 = self.transformer.lipschitz()
         v3 = norm(self.mlp_head[1].weight, ord=2)
-
+        # print (f"Complete: {v1 * v2 * v3}, {v1}, {v2}, {v3}")
         return v1 * v2 * v3

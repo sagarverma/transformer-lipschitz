@@ -2,7 +2,7 @@ import numpy as np
 
 import torch
 from torch import nn
-from torch.nn.utils import spectral_norm
+from torch.linalg import norm
 
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
@@ -54,8 +54,8 @@ class FeedForward(nn.Module):
         return self.net(x)
 
     def lipschitz(self):
-        l1 = self.net[0].weight.norm(p=2)
-        l2 = self.net[3].weight.norm(p=2)
+        l1 = norm(self.net[0].weight, ord=2)
+        l2 = norm(self.net[3].weight, ord=2)
         return 1.12 * l1 * l2
 
 class L2Attention(nn.Module):
@@ -95,8 +95,8 @@ class L2Attention(nn.Module):
         q, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h = self.heads), qv)
     
         dots = q @ q.transpose(-2, -1)
-        q_l2 = torch.pow(q.norm(dim=-1, p=2), 2).unsqueeze(-1)
-        k_l2 = torch.pow(q.norm(dim=-1, p=2), 2).unsqueeze(-1)
+        q_l2 = torch.pow(norm(q, ord=2), 2).unsqueeze(-1)
+        k_l2 = torch.pow(norm(q, ord=2), 2).unsqueeze(-1)
         q_l2 = torch.matmul(q_l2, torch.ones(q_l2.shape).transpose(-1, -2).cuda())
         k_l2 = torch.matmul(torch.ones(k_l2.shape).cuda(), k_l2.transpose(-1, -2))
         
@@ -116,7 +116,7 @@ class L2Attention(nn.Module):
         W_o = self.to_out[0].weight
         v1 = np.sqrt(N / (D / H))
         v2 = 4 * 1 / ((N-1) * np.exp(N)) + 1
-        v3 = torch.sqrt(torch.pow(W_Qh.norm(p=2), 2) * torch.pow(W_Vh.norm(p=2), 2)) * W_o.norm(p=2)
+        v3 = torch.sqrt(torch.pow(norm(W_Qh, ord=2), 2) * torch.pow(norm(W_Vh, ord=2), 2)) * norm(W_o, ord=2)
 
         return v1 * v2 * v3
 
@@ -198,7 +198,7 @@ class Transformer(nn.Module):
     def lipschitz(self):
         total = 1
         for attn, ff in self.layers:
-            total *= (attn.fn.lipschitz() + 1 * ff.fn.lipschitz() + 1)
+            total *= ((attn.fn.lipschitz() + 1) * (ff.fn.lipschitz() + 1))
 
         return total 
 
@@ -271,8 +271,8 @@ class ViT(nn.Module):
         return self.mlp_head(x)
 
     def lipschitz(self):
-        v1 = self.to_patch_embedding[1].weight.norm(p=2)
+        v1 = norm(self.to_patch_embedding[1].weight, ord=2)
         v2 = self.transformer.lipschitz()
-        v3 = self.mlp_head[1].weight.norm(p=2)
+        v3 = norm(self.mlp_head[1].weight, ord=2)
 
         return v1 * v2 * v3

@@ -13,8 +13,8 @@ from liptrf.models.vit import ViT
 torch.manual_seed(42)
 
 DOWNLOAD_PATH = './data/mnist'
-BATCH_SIZE_TRAIN = 100
-BATCH_SIZE_TEST = 1000
+BATCH_SIZE_TRAIN = 256
+BATCH_SIZE_TEST = 2048
 
 transform_mnist = torchvision.transforms.Compose([torchvision.transforms.ToTensor(),
                                torchvision.transforms.Normalize((0.1307,), (0.3081,))])
@@ -58,7 +58,7 @@ def train_robust(model, criterion, optimizer, data_loader, loss_history, epsilon
         target = target.cuda()
         optimizer.zero_grad()
         output = model(data)
-        output += 2 ** 0.5 * epsilon * lipschitz
+        # output += 2 ** 0.5 * epsilon * lipschitz
         loss = criterion(output, target)
         loss.backward()
         optimizer.step()
@@ -97,11 +97,11 @@ def evaluate(model, criterion, data_loader, loss_history):
 
 N_EPOCHS = 25
 EPSILON = 1.58 
-WARMUP = 1 
+WARMUP = 100
 
 start_time = time.time()
 model = ViT(image_size=28, patch_size=7, num_classes=10, channels=1,
-            dim=64, depth=6, heads=8, mlp_dim=128, attention_type='L2').cuda()
+            dim=64, depth=1, heads=8, mlp_dim=128, attention_type='L2').cuda()
 optimizer = optim.Adam(model.parameters(), lr=0.003)
 criterion = nn.CrossEntropyLoss()
 

@@ -90,11 +90,10 @@ class L2Attention(nn.Module):
         self, 
         x: torch.tensor
     ) -> torch.tensor:
-        print (x.shape)
+
         qv = self.to_qv(x).chunk(2, dim = -1)
-        print (self.to_qv(x).shape, qv[0].shape, self.to_qv.weight.shape)
         q, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h = self.heads), qv)
-        print (q.shape)
+    
         dots = q @ q.transpose(-2, -1)
         q_l2 = torch.pow(q.norm(dim=-1, p=2), 2).unsqueeze(-1)
         k_l2 = torch.pow(q.norm(dim=-1, p=2), 2).unsqueeze(-1)

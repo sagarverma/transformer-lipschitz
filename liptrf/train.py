@@ -1,6 +1,8 @@
-import time 
+import time
+from liptrf import lipschitz 
 
 import torch
+import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F 
 import torchvision
@@ -26,7 +28,7 @@ test_set = torchvision.datasets.MNIST(DOWNLOAD_PATH, train=False, download=True,
 test_loader = torch.utils.data.DataLoader(test_set, batch_size=BATCH_SIZE_TEST, shuffle=True)
 
 
-def train_epoch(model, optimizer, data_loader, loss_history):
+def train_epoch(model, criterion, optimizer, data_loader, loss_history):
     total_samples = len(data_loader.dataset)
     model.train()
 
@@ -34,8 +36,8 @@ def train_epoch(model, optimizer, data_loader, loss_history):
         data = data.cuda()
         target = target.cuda()
         optimizer.zero_grad()
-        output = F.log_softmax(model(data), dim=1)
-        loss = F.nll_loss(output, target)
+        output = model(data)
+        loss = criterion(output, target)
         loss.backward()
         optimizer.step()
 
@@ -45,19 +47,21 @@ def train_epoch(model, optimizer, data_loader, loss_history):
                   '{:6.4f}'.format(loss.item()))
             loss_history.append(loss.item())
 
-def train_robust(model, optimizer, data_loader, loss_history, epsilon):
+def train_robust(model, criterion, optimizer, data_loader, loss_history, epsilon):
     total_samples = len(data_loader.dataset)
     model.eval()
 
     # Calculate Lipshitz of the network
+    lipschitz = model.lipschitz()
 
     model.train()
     for i, (data, target) in enumerate(data_loader):
         data = data.cuda() + epsilon
         target = target.cuda()
         optimizer.zero_grad()
-        output = F.log_softmax(model(data), dim=1)
-        loss = F.nll_loss(output, target)
+        output = model(data)
+        output += 2 ** 0.5 * epsilon * lipschitz
+        loss = criterion(output, target)
         loss.backward()
         optimizer.step()
 
@@ -67,7 +71,7 @@ def train_robust(model, optimizer, data_loader, loss_history, epsilon):
                   '{:6.4f}'.format(loss.item()))
             loss_history.append(loss.item())
 
-def evaluate(model, data_loader, loss_history):
+def evaluate(model, criterion, data_loader, loss_history):
     model.eval()
     
     total_samples = len(data_loader.dataset)
@@ -78,8 +82,8 @@ def evaluate(model, data_loader, loss_history):
         for data, target in data_loader:
             data = data.cuda()
             target = target.cuda()
-            output = F.log_softmax(model(data), dim=1)
-            loss = F.nll_loss(output, target, reduction='sum')
+            output = model(data)
+            loss = criterion(output, target)
             _, pred = torch.max(output, dim=1)
             
             total_loss += loss.item()
@@ -100,16 +104,17 @@ start_time = time.time()
 model = ViT(image_size=28, patch_size=7, num_classes=10, channels=1,
             dim=64, depth=6, heads=8, mlp_dim=128, attention_type='L2').cuda()
 optimizer = optim.Adam(model.parameters(), lr=0.003)
+criterion = nn.CrossEntropyLoss()
 
 train_loss_history, test_loss_history = [], []
 for epoch in range(1, N_EPOCHS + 1):
     if epoch < WARMUP:
         print('Epoch:', epoch)
-        train_epoch(model, optimizer, train_loader, train_loss_history)
-        evaluate(model, test_loader, test_loss_history)
+        train_epoch(model, criterion, optimizer, train_loader, train_loss_history)
+        evaluate(model, criterion, test_loader, test_loss_history)
     else:
         print ('Robust Epoch:', epoch)
-        train_robust(model, optimizer, train_loader, train_loss_history, EPSILON)
-        evaluate(model, test_loader, test_loss_history)
+        train_robust(model, criterion, optimizer, train_loader, train_loss_history, EPSILON)
+        evaluate(model, criterion, test_loader, test_loss_history)
 
 print('Execution time:', '{:5.2f}'.format(time.time() - start_time), 'seconds')

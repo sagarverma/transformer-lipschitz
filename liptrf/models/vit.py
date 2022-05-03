@@ -113,7 +113,7 @@ class L2Attention(nn.Module):
         W_Qh = self.to_qv.weight[:512, :]
         W_Vh = self.to_qv.weight[512:, :]
         W_o = self.to_out[0].weight
-        v1 = torch.sqrt(N / (D / H))
+        v1 = (N / (D / H)) ** 0.5
         v2 = 4 * 1 / ((N-1) * torch.exp(N)) + 1
         v3 = torch.sqrt(torch.pow(W_Qh.norm(p=2), 2) * torch.pow(W_Vh.norm(p=2), 2)) * W_o.norm(p=2)
 

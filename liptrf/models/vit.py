@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+from torch.nn.utils import spectral_norm
 
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
@@ -51,9 +52,9 @@ class FeedForward(nn.Module):
         return self.net(x)
 
     def lipschitz(self):
-        print (self.net[0].weight)
-        print (1.12)
-        print (self.net[3].weight)
+        l1 = spectral_norm(self.net[0].weight)
+        l2 = spectral_norm(self.net[3].weight)
+        return 1.12 * l1 * l2
 
 class L2Attention(nn.Module):
     def __init__(
@@ -61,9 +62,12 @@ class L2Attention(nn.Module):
         dim: int, 
         heads: int = 8, 
         dim_head: int = 64, 
-        dropout: float = 0.
+        dropout: float = 0.,
+        n_value: int = 1
     ) -> None:
         super().__init__()
+        self.dim = dim 
+        self.n_value = n_value
         inner_dim = dim_head *  heads
         project_out = not (heads == 1 and dim_head == dim)
 
@@ -84,9 +88,11 @@ class L2Attention(nn.Module):
         self, 
         x: torch.tensor
     ) -> torch.tensor:
+        print (x.shape)
         qv = self.to_qv(x).chunk(2, dim = -1)
+        print (self.to_qv(x).shape, qv[0].shape, self.to_qv.weight.shape)
         q, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h = self.heads), qv)
-
+        print (q.shape)
         dots = q @ q.transpose(-2, -1)
         q_l2 = torch.pow(q.norm(dim=-1, p=2), 2).unsqueeze(-1)
         k_l2 = torch.pow(q.norm(dim=-1, p=2), 2).unsqueeze(-1)
@@ -100,13 +106,27 @@ class L2Attention(nn.Module):
         out = rearrange(out, 'b h n d -> b n (h d)')
         return self.to_out(out)
 
+    def lipschitz(self):
+        N = self.n_value 
+        D = self.dim 
+        H = self.heads
+        W_Qh = self.to_qv.weight[:512, :]
+        W_Vh = self.to_qv.weight[512:, :]
+        W_o = self.to_out[0].weight
+        v1 = torch.sqrt(N / (D / H))
+        v2 = 4 * 1 / ((N-1) * torch.exp(N)) + 1
+        v3 = torch.sqrt(torch.pow(W_Qh.norm(p=2), 2) * torch.pow(W_Vh.norm(p=2), 2)) * W_o.norm(p=2)
+
+        return v1 * v2 * v3
+
 class Attention(nn.Module):
     def __init__(
         self, 
         dim: int, 
         heads: int = 8, 
         dim_head: int = 64, 
-        dropout: float = 0.
+        dropout: float = 0.,
+        n_value: int = 1
     ) -> None:
         super().__init__()
         inner_dim = dim_head *  heads
@@ -150,7 +170,8 @@ class Transformer(nn.Module):
         dim_head: int, 
         mlp_dim: int, 
         dropout: float = 0., 
-        attention_type: str = "DP"
+        attention_type: str = "DP",
+        n_value: int = 1
     ) -> None:
         super().__init__()
         self.layers = nn.ModuleList([])
@@ -160,7 +181,7 @@ class Transformer(nn.Module):
 
         for _ in range(depth):
             self.layers.append(nn.ModuleList([
-                PreNorm(dim, attention(dim, heads = heads, dim_head = dim_head, dropout = dropout)),
+                PreNorm(dim, attention(dim, heads = heads, dim_head = dim_head, dropout = dropout, n_value = n_value)),
                 PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout))
             ]))
 
@@ -172,6 +193,13 @@ class Transformer(nn.Module):
             x = attn(x) + x
             x = ff(x) + x
         return x
+
+    def lipschitz(self):
+        total = 1
+        for attn, ff in self.layers:
+            total *= (attn.lipschitz() + 1 * ff.lipschitz() + 1)
+
+        return total 
 
 class ViT(nn.Module):
     def __init__(
@@ -210,7 +238,9 @@ class ViT(nn.Module):
         self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
         self.dropout = nn.Dropout(emb_dropout)
 
-        self.transformer = Transformer(dim, depth, heads, dim_head, mlp_dim, dropout, attention_type)
+        self.transformer = Transformer(dim, depth, heads, 
+                                       dim_head, mlp_dim, dropout, 
+                                       attention_type, num_patches+1)
 
         self.pool = pool
         self.to_latent = nn.Identity()
@@ -238,3 +268,10 @@ class ViT(nn.Module):
 
         x = self.to_latent(x)
         return self.mlp_head(x)
+
+    def lipschitz(self):
+        v1 = spectral_norm(self.to_patch_embedding[1].weight)
+        v2 = self.transformer.lipschitz()
+        v3 = spectral_norm(self.mlp_head[1].weight)
+
+        return v1 * v2 * v3

@@ -54,8 +54,8 @@ class FeedForward(nn.Module):
         return self.net(x)
 
     def lipschitz(self):
-        l1 = self.net[0].weight.weight.norm(p=2)
-        l2 = self.net[3].weight.weight.norm(p=2)
+        l1 = self.net[0].weight.norm(p=2)
+        l2 = self.net[3].weight.norm(p=2)
         return 1.12 * l1 * l2
 
 class L2Attention(nn.Module):

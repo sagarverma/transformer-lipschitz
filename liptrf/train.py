@@ -42,9 +42,7 @@ def train_epoch(model, criterion, optimizer, data_loader, loss_history):
         optimizer.step()
 
         if i % 100 == 0:
-            print('[' +  '{:5}'.format(i * len(data)) + '/' + '{:5}'.format(total_samples) +
-                  ' (' + '{:3.0f}'.format(100 * i / len(data_loader)) + '%)]  Loss: ' +
-                  '{:6.4f}'.format(loss.item()))
+            print(f"[{i * len(data)} / {total_samples} ({100 * i / len(data_loader)} )]  Loss: {loss.item()}")
             loss_history.append(loss.item())
 
 def train_robust(model, criterion, optimizer, data_loader, loss_history, epsilon):
@@ -66,13 +64,16 @@ def train_robust(model, criterion, optimizer, data_loader, loss_history, epsilon
         optimizer.step()
 
         if i % 100 == 0:
-            print('[' +  '{:5}'.format(i * len(data)) + '/' + '{:5}'.format(total_samples) +
-                  ' (' + '{:3.0f}'.format(100 * i / len(data_loader)) + '%)]  Loss: ' +
-                  '{:6.4f}'.format(loss.item()))
+            print(f"[{i * len(data)} / {total_samples} ({100 * i / len(data_loader)} )]  Loss: {loss.item()}")        
             loss_history.append(loss.item())
+
+    print(f"Lipschitz: {lipschitz}")
 
 def evaluate(model, criterion, data_loader, loss_history):
     model.eval()
+
+    # Calculate Lipshitz of the network
+    lipschitz = model.lipschitz()
     
     total_samples = len(data_loader.dataset)
     correct_samples = 0
@@ -91,10 +92,8 @@ def evaluate(model, criterion, data_loader, loss_history):
 
     avg_loss = total_loss / total_samples
     loss_history.append(avg_loss)
-    print('\nAverage test loss: ' + '{:.4f}'.format(avg_loss) +
-          '  Accuracy:' + '{:5}'.format(correct_samples) + '/' +
-          '{:5}'.format(total_samples) + ' (' +
-          '{:4.2f}'.format(100.0 * correct_samples / total_samples) + '%)\n')
+    print(f"\nAverage test loss: {avg_loss}  Accuracy: {correct_samples} /{total_samples} ({100.0 * correct_samples / total_samples} )\n")
+    print(f"Lipschitz: {lipschitz}")
 
 N_EPOCHS = 25
 EPSILON = 1.58 

@@ -197,7 +197,7 @@ class Transformer(nn.Module):
     def lipschitz(self):
         total = 1
         for attn, ff in self.layers:
-            total *= (attn.lipschitz() + 1 * ff.lipschitz() + 1)
+            total *= (attn.fn.lipschitz() + 1 * ff.fn.lipschitz() + 1)
 
         return total 
 

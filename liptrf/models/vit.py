@@ -52,8 +52,8 @@ class FeedForward(nn.Module):
         return self.net(x)
 
     def lipschitz(self):
-        l1 = spectral_norm(self.net[0].weight)
-        l2 = spectral_norm(self.net[3].weight)
+        l1 = self.net[0].weight.weight.norm(p=2)
+        l2 = self.net[3].weight.weight.norm(p=2)
         return 1.12 * l1 * l2
 
 class L2Attention(nn.Module):
@@ -270,8 +270,8 @@ class ViT(nn.Module):
         return self.mlp_head(x)
 
     def lipschitz(self):
-        v1 = spectral_norm(self.to_patch_embedding[1].weight)
+        v1 = self.to_patch_embedding[1].weight.norm(p=2)
         v2 = self.transformer.lipschitz()
-        v3 = spectral_norm(self.mlp_head[1].weight)
+        v3 = self.mlp_head[1].weight.weight.norm(p=2)
 
         return v1 * v2 * v3

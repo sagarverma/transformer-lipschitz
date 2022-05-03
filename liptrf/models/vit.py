@@ -274,6 +274,6 @@ class ViT(nn.Module):
     def lipschitz(self):
         v1 = self.to_patch_embedding[1].weight.norm(p=2)
         v2 = self.transformer.lipschitz()
-        v3 = self.mlp_head[1].weight.weight.norm(p=2)
+        v3 = self.mlp_head[1].weight.norm(p=2)
 
         return v1 * v2 * v3

@@ -50,6 +50,11 @@ class FeedForward(nn.Module):
     ) -> torch.tensor:
         return self.net(x)
 
+    def lipschitz(self):
+        print (self.net[0].weight)
+        print (1.12)
+        print (self.net[3].weight)
+
 class L2Attention(nn.Module):
     def __init__(
         self, 
@@ -85,8 +90,8 @@ class L2Attention(nn.Module):
         dots = q @ q.transpose(-2, -1)
         q_l2 = torch.pow(q.norm(dim=-1, p=2), 2).unsqueeze(-1)
         k_l2 = torch.pow(q.norm(dim=-1, p=2), 2).unsqueeze(-1)
-        q_l2 = torch.matmul(q_l2, torch.ones(q_l2.shape).transpose(-1, -2))
-        k_l2 = torch.matmul(torch.ones(k_l2.shape), k_l2.transpose(-1, -2))
+        q_l2 = torch.matmul(q_l2, torch.ones(q_l2.shape).transpose(-1, -2).cuda())
+        k_l2 = torch.matmul(torch.ones(k_l2.shape).cuda(), k_l2.transpose(-1, -2))
         
         attn = (-1 * (q_l2 - 2 * dots + k_l2) * self.scale).softmax(dim=-1)
         attn = self.dropout(attn)

@@ -4,15 +4,15 @@ from liptrf import lipschitz
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.linalg import norm
 import torch.optim as optim
-import torch.nn.functional as F 
 import torchvision
 
 from advertorch.attacks import L2PGDAttack
 from advertorch.context import ctx_noparamgrad_and_eval
 
 from liptrf.models.vit import ViT
+from liptrf.models.linear_toy import Net 
+
 
 def evaluate_pgd(loader, model):
     model.eval()
@@ -33,30 +33,7 @@ def evaluate_pgd(loader, model):
     print(f' * Error {np.mean(errors)}')
     return np.mean(errors)
 
-class Net(nn.Module):
 
-    def __init__(self):
-        super(Net, self).__init__()
-        # 1 input image channel, 6 output channels, 5x5 square convolution
-        # kernel
-        # an affine operation: y = Wx + b
-        self.fc1 = nn.Linear(784, 512)  # 5*5 from image dimension
-        self.fc2 = nn.Linear(512, 256)
-        self.fc3 = nn.Linear(256, 10)
-
-    def forward(self, x):
-        # Max pooling over a (2, 2) window
-        x = torch.flatten(x, 1) # flatten all dimensions except the batch dimension
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = self.fc3(x)
-        return x
-
-    def lipschitz(self):
-        v1 = norm(self.fc1.weight, ord=2)
-        v2 = norm(self.fc2.weight, ord=2)
-        v3 = norm(self.fc3.weight, ord=2)
-        return v1 * v2 * v3
 
 torch.manual_seed(42)
 
@@ -66,7 +43,6 @@ BATCH_SIZE_TEST = 2048
 N_EPOCHS = 300
 EPSILON = 1.58
 WARMUP = 10
-CLAMP = 1
 DEPTH = 6
 HEADS = 8
 

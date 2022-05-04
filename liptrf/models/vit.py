@@ -41,12 +41,15 @@ class FeedForward(nn.Module):
     ) -> None:
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(dim, hidden_dim),
+            nn.Linear(dim, hidden_dim, bias=False),
             nn.GELU(),
             nn.Dropout(dropout),
-            nn.Linear(hidden_dim, dim),
+            nn.Linear(hidden_dim, dim, bias=False),
             nn.Dropout(dropout)
         )
+
+        # torch.nn.init.xavier_uniform_(self.net[0].weight, gain=1/(6 ** 0.5))
+        # torch.nn.init.xavier_uniform_(self.net[3].weight, gain=1/(6 ** 0.5))
 
     def forward(
         self, 
@@ -83,9 +86,15 @@ class L2Attention(nn.Module):
         self.to_qv = nn.Linear(dim, dim * 2, bias = False)
 
         self.to_out = nn.Sequential(
-            nn.Linear(dim, dim),
+            nn.Linear(dim, dim, bias=False),
             nn.Dropout(dropout)
         ) 
+
+        # const = (1/16/(dim ** 0.5))
+        # torch.nn.init.uniform_(self.to_qv.weight, -1 * const, const)
+        # torch.nn.init.uniform_(self.to_out[0].weight, -1 * const, const)
+        # torch.nn.init.xavier_uniform_(self.to_qv.weight, gain=1/(6 ** 0.5))
+        # torch.nn.init.xavier_uniform_(self.to_out[0].weight, gain=1/(6 ** 0.5))
 
     def forward(
         self, 
@@ -120,10 +129,10 @@ class L2Attention(nn.Module):
         v3 = 0
         w = D//H
         for i in range(H):
-            v3 += torch.pow(norm(W_Q[:, i*w: (i +1) * w], ord=2), 2) * torch.pow(norm(W_V[:, i*w: (i +1) * w], ord=2), 2)
+            v3 += torch.pow(norm(W_Q[i*w: (i +1) * w, :], ord=2), 2) * torch.pow(norm(W_V[i*w: (i +1) * w, :], ord=2), 2)
         v3 = torch.sqrt(v3) * norm(W_o, ord=2)
+        # print (f"{v1*v2*v3}, {v1}, {v2}, {v3}")
         return v1 * v2 * v3
-        # return 0
 
 class Attention(nn.Module):
     def __init__(
@@ -148,7 +157,7 @@ class Attention(nn.Module):
         self.to_out = nn.Sequential(
             nn.Linear(dim, dim),
             nn.Dropout(dropout)
-        ) 
+        )
 
     def forward(
         self, 
@@ -237,7 +246,7 @@ class ViT(nn.Module):
 
         self.to_patch_embedding = nn.Sequential(
             Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1 = patch_height, p2 = patch_width),
-            nn.Linear(patch_dim, dim),
+            nn.Linear(patch_dim, dim, bias=False),
         )
 
         self.pos_embedding = nn.Parameter(torch.randn(1, num_patches + 1, dim))
@@ -252,8 +261,11 @@ class ViT(nn.Module):
 
         self.mlp_head = nn.Sequential(
             nn.LayerNorm(dim),
-            nn.Linear(dim, num_classes)
+            nn.Linear(dim, num_classes, bias=False)
         )
+
+        # torch.nn.init.xavier_uniform_(self.to_patch_embedding[1].weight, gain=1/(6 ** 0.5))
+        # torch.nn.init.xavier_uniform_(self.mlp_head[1].weight, gain=1/(6 ** 0.5))
 
     def forward(
         self, 

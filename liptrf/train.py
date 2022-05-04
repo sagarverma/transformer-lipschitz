@@ -67,7 +67,7 @@ N_EPOCHS = 300
 EPSILON = 1.58
 WARMUP = 10
 CLAMP = 1
-DEPTH = 1
+DEPTH = 6
 HEADS = 8
 
 def one_hot(batch, depth=10):
@@ -86,7 +86,7 @@ test_set = torchvision.datasets.MNIST(DOWNLOAD_PATH, train=False, download=True,
 test_loader = torch.utils.data.DataLoader(test_set, batch_size=BATCH_SIZE_TEST, shuffle=True)
 
 
-def train_epoch(model, criterion, optimizer, data_loader, loss_history, clamp):
+def train_epoch(model, criterion, optimizer, data_loader, loss_history):
     total_samples = len(data_loader.dataset)
     model.train()
 
@@ -95,22 +95,16 @@ def train_epoch(model, criterion, optimizer, data_loader, loss_history, clamp):
         target = target.cuda()
         optimizer.zero_grad()
         output = model(data)
-        # output = F.log_softmax(output, dim=1)
         loss = criterion(output, target)
         loss.backward()
-        # torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
         optimizer.step()
-        # with torch.no_grad():
-        #     for param in model.parameters():
-        #         param.clamp_(-1* clamp, clamp)
 
         if i % 100 == 0:
             print(f"[{i * len(data)} / {total_samples} ({100 * i / len(data_loader)} )]  Loss: {loss.item()}")
             loss_history.append(loss.item())
 
-def train_robust(model, criterion, optimizer, data_loader, loss_history, epsilon, clamp):
+def train_robust(model, criterion, optimizer, data_loader, loss_history, epsilon):
     total_samples = len(data_loader.dataset) 
-    # model.eval()
 
     lipschitz = model.lipschitz().item()
 
@@ -122,16 +116,11 @@ def train_robust(model, criterion, optimizer, data_loader, loss_history, epsilon
         optimizer.zero_grad()
         output = model(data)
         onehot = one_hot(target)
-        output[onehot == 0] += (2 ** 0.5) * epsilon * lipschitz 
-        # output =  F.softmax(output, dim=1)
+        output[onehot == 0] += (2 ** 0.5) * epsilon * (lipschitz ** (1 / 6)) 
         loss = criterion(output, target) 
         loss.backward()
-        # torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
         optimizer.step()
-        # with torch.no_grad():
-        #     for param in model.parameters():
-        #         param.clamp_(-1* clamp, clamp)
-
+        
         if i % 100 == 0:
             print(f"[{i * len(data)} / {total_samples} ({100 * i / len(data_loader)} )]  Loss: {loss.item()}")        
             loss_history.append(loss.item())
@@ -153,7 +142,6 @@ def evaluate(model, criterion, data_loader, loss_history):
             data = data.cuda()
             target = target.cuda()
             output = model(data)
-            # output = F.log_softmax(output, dim=1)
             loss = criterion(output, target)
             _, pred = torch.max(output, dim=1)
             
@@ -174,19 +162,15 @@ model = ViT(image_size=28, patch_size=7, num_classes=10, channels=1,
 optimizer = optim.Adam(model.parameters(), lr=1e-5)
 criterion = nn.CrossEntropyLoss()
 
-# with torch.no_grad():
-#     for param in model.parameters():
-#         param.clamp_(-1* CLAMP, CLAMP)
-
 train_loss_history, test_loss_history = [], []
 for epoch in range(1, N_EPOCHS + 1):
     if epoch < WARMUP:
         print('Epoch:', epoch)
-        train_epoch(model, criterion, optimizer, train_loader, train_loss_history, CLAMP)
+        train_epoch(model, criterion, optimizer, train_loader, train_loss_history)
         evaluate(model, criterion, test_loader, test_loss_history)
     else:
         print ('Robust Epoch:', epoch)
-        train_robust(model, criterion, optimizer, train_loader, train_loss_history, EPSILON, CLAMP)
+        train_robust(model, criterion, optimizer, train_loader, train_loss_history, EPSILON)
         evaluate(model, criterion, test_loader, test_loss_history)
         evaluate_pgd(test_loader, model)
 

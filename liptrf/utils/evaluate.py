@@ -8,13 +8,13 @@ from advertorch.context import ctx_noparamgrad_and_eval
 
 # TODO: use args not hard code 
 
-def evaluate_pgd(loader, model):
+def evaluate_pgd(loader, model, epsilon, niter, alpha):
     model.eval()
     accs = []
 
     adversary = L2PGDAttack(
-        model, loss_fn=nn.CrossEntropyLoss(reduction="sum"), eps=1.58, 
-        nb_iter=100, eps_iter=4., rand_init=True, clip_min=0.0, clip_max=1.0, targeted=False)
+        model, loss_fn=nn.CrossEntropyLoss(reduction="sum"), eps=epsilon, 
+        nb_iter=niter, eps_iter=alpha, rand_init=True, clip_min=0.0, clip_max=1.0, targeted=False)
 
     for i, (X,y) in enumerate(loader):
         X,y = X.cuda(), y.cuda()

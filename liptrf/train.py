@@ -21,7 +21,9 @@ DOWNLOAD_PATH = './data/mnist'
 BATCH_SIZE_TRAIN = 256
 BATCH_SIZE_TEST = 2048
 N_EPOCHS = 300
-EPSILON = 1.58
+EPSILON_TRAIN = 1.58
+STARTING_EPSILON = 0
+SCHEDULE_LENGTH = 150
 WARMUP = 0
 DEPTH = 1
 HEADS = 8
@@ -65,9 +67,8 @@ def train_robust(model, criterion, optimizer, data_loader, loss_history, epsilon
     # old_lipschitz = model.lipschitz()#.item()
 
     model.train()
-    start_epsilon = 0.0
     for i, (data, target) in enumerate(data_loader):
-        start_epsilon += (epsilon / len(data_loader) / 256)
+        start_epsilon = epsilon + i / len(data_loader) * (EPSILON_TRAIN - STARTING_EPSILON )/ SCHEDULE_LENGTH
         data = data.cuda()
         target = target.cuda()
         optimizer.zero_grad()
@@ -112,24 +113,39 @@ def evaluate(model, criterion, data_loader, loss_history):
     print(f"Lipschitz: {lipschitz}")
 
 
+eps_schedule = np.linspace(STARTING_EPSILON,
+                            EPSILON_TRAIN,                                
+                            SCHEDULE_LENGTH)
 
 start_time = time.time()
-model = ViT(image_size=28, patch_size=7, num_classes=10, channels=1,
-            dim=128, depth=DEPTH, heads=HEADS, mlp_ratio=4, attention_type='L2').cuda()
-# model = Net().cuda()
+# model = ViT(image_size=28, patch_size=7, num_classes=10, channels=1,
+#             dim=128, depth=DEPTH, heads=HEADS, mlp_ratio=4, attention_type='L2').cuda()
+model = Net().cuda()
 optimizer = optim.Adam(model.parameters(), lr=1e-3)
 criterion = nn.CrossEntropyLoss()
 
+
 train_loss_history, test_loss_history = [], []
 for epoch in range(1, N_EPOCHS + 1):
+    if epoch < WARMUP:
+        epsilon = 0
+        epsilon_next = 0
+    elif WARMUP <= epoch < WARMUP + len(eps_schedule) and STARTING_EPSILON is not None: 
+        epsilon = float(eps_schedule[epoch - WARMUP])
+        epsilon_next = float(eps_schedule[np.min((epoch + 1 - WARMUP, len(eps_schedule)-1))])
+    else:
+        epsilon = EPSILON_TRAIN
+        epsilon_next = EPSILON_TRAIN
+
     if epoch < WARMUP:
         print('Epoch:', epoch)
         train_epoch(model, criterion, optimizer, train_loader, train_loss_history)
         evaluate(model, criterion, test_loader, test_loss_history)
     else:
-        print ('Robust Epoch:', epoch)
-        train_robust(model, criterion, optimizer, train_loader, train_loss_history, EPSILON)
+        print (f"Robust Epoch: {epoch} Epsilon: {epsilon}")
+        train_robust(model, criterion, optimizer, train_loader, train_loss_history, epsilon)
         evaluate(model, criterion, test_loader, test_loss_history)
         evaluate_pgd(test_loader, model)
+        print ("\n%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n")
 
 print('Execution time:', '{:5.2f}'.format(time.time() - start_time), 'seconds')

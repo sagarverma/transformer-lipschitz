@@ -12,6 +12,8 @@ from liptrf.models.linear_toy import Net
 
 from liptrf.utils.evaluate import evaluate_pgd 
 
+# TODO: Arguments YAML config 
+# TODO: Use args not hard code
 
 torch.manual_seed(42)
 
@@ -20,8 +22,8 @@ BATCH_SIZE_TRAIN = 256
 BATCH_SIZE_TEST = 2048
 N_EPOCHS = 300
 EPSILON = 1.58
-WARMUP = 10
-DEPTH = 6
+WARMUP = 0
+DEPTH = 1
 HEADS = 8
 
 def one_hot(batch, depth=10):
@@ -60,17 +62,19 @@ def train_epoch(model, criterion, optimizer, data_loader, loss_history):
 def train_robust(model, criterion, optimizer, data_loader, loss_history, epsilon):
     total_samples = len(data_loader.dataset) 
 
-    lipschitz = model.lipschitz().item()
+    # old_lipschitz = model.lipschitz()#.item()
 
     model.train()
+    start_epsilon = 0.0
     for i, (data, target) in enumerate(data_loader):
-        # epsilon += 0.001
+        start_epsilon += (epsilon / len(data_loader) / 256)
         data = data.cuda()
         target = target.cuda()
         optimizer.zero_grad()
         output = model(data)
         onehot = one_hot(target)
-        output[onehot == 0] += (2 ** 0.5) * epsilon * (lipschitz ** (1 / 6)) 
+        lipschitz = model.lipschitz().item()
+        output[onehot == 0] +=  (2 ** 0.5) * start_epsilon *  lipschitz 
         loss = criterion(output, target) 
         loss.backward()
         optimizer.step()
@@ -113,7 +117,7 @@ start_time = time.time()
 model = ViT(image_size=28, patch_size=7, num_classes=10, channels=1,
             dim=128, depth=DEPTH, heads=HEADS, mlp_ratio=4, attention_type='L2').cuda()
 # model = Net().cuda()
-optimizer = optim.Adam(model.parameters(), lr=1e-5)
+optimizer = optim.Adam(model.parameters(), lr=1e-3)
 criterion = nn.CrossEntropyLoss()
 
 train_loss_history, test_loss_history = [], []

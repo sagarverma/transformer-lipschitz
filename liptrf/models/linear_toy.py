@@ -1,7 +1,11 @@
+import numpy as np 
+
 import torch
 import torch.nn as nn
 from torch.linalg import norm
 import torch.nn.functional as F 
+
+from scipy.linalg.interpolative import estimate_spectral_norm as esn
 
 
 class Net(nn.Module):
@@ -27,4 +31,7 @@ class Net(nn.Module):
         v1 = norm(self.fc1.weight, ord=2)
         v2 = norm(self.fc2.weight, ord=2)
         v3 = norm(self.fc3.weight, ord=2)
+        # v1 = esn(self.fc1.weight.data.cpu().numpy().astype(np.float64), its=2)
+        # v2 = esn(self.fc2.weight.data.cpu().numpy().astype(np.float64), its=2)
+        # v3 = esn(self.fc3.weight.data.cpu().numpy().astype(np.float64), its=2)
         return v1 * v2 * v3

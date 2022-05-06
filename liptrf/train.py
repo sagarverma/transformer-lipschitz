@@ -18,7 +18,6 @@ from liptrf.utils.training import lr_exp
 
 # TODO: Arguments YAML config 
 # TODO: Use args not hard code
-
 torch.manual_seed(42)
 
 DOWNLOAD_PATH = './data/mnist'
@@ -26,7 +25,7 @@ BATCH_SIZE_TRAIN = 256
 BATCH_SIZE_TEST = 2048
 EPOCHS = 300
 RAMPUP = 150
-WARMUP = 0
+WARMUP = 10
 OPT = "adam"
 MOMENTUM = 0.9
 WEIGHT_DECAY = 0.0
@@ -85,10 +84,10 @@ def train_epoch(model, criterion, optimizer, data_loader, loss_history):
             loss_history.append(loss.item())
 
 def train_robust(model, criterion, optimizer, data_loader, loss_history, epsilon, kappa):
-    total_samples = len(data_loader.dataset) 
-
-    old_lipschitz = model.lipschitz().item()
-    print (old_lipschitz)
+    total_samples = len(data_loader.dataset)
+    standard_losses = []
+    robust_losses = []
+    lipschitzs = []
 
     model.train()
     for i, (data, target) in enumerate(data_loader):
@@ -102,36 +101,41 @@ def train_robust(model, criterion, optimizer, data_loader, loss_history, epsilon
         
         lipschitz = model.lipschitz().item()
         # print (lipschitz)
-        # kW = lipschitz * model.fc3.weight.T
-        # j = torch.argmax(output, dim=1)
-        # y_j = torch.max(output, dim=1, keepdim=True)[0]
-        # kW_j = kW.T[j]
-        # kW_ij = kW_j[:,:,None] - kW[None]
+        kW = lipschitz * model.fc3.weight.clone().detach().T
+        j = torch.argmax(output, dim=1)
+        y_j = torch.max(output, dim=1, keepdim=True)[0]
+        kW_j = kW.T[j]
+        kW_ij = kW_j[:,:,None] - kW[None]
         
-        # K_ij = torch.sqrt(torch.sum(kW_ij * kW_ij, dim=1))
+        K_ij = torch.sqrt(torch.sum(kW_ij * kW_ij, dim=1))
         # # lipschitz_constant = torch.where(torch.eq(output, y_j), torch.zeros_like(K_ij) - 1., K_ij)
         
-        # y_bot_i = output + start_epsilon * K_ij
-        # y_bot_i = torch.where(torch.eq(output, y_j), -np.infty + torch.zeros_like(y_bot_i), y_bot_i)
-        # y_bot = torch.max(y_bot_i, dim=1, keepdims=True)[0]
-        
-        # y_pred = torch.cat([output, y_bot], dim=1)
-        # y_pred_soft = torch.softmax(y_pred, dim=1)
-        # y_true = torch.cat([y_pred[:, :-1], torch.zeros(y_pred[:, :-1].shape[0], 1).cuda()], dim=1)
-        # # print (criterion(output, target), F.kl_div(y_pred_soft, y_true))
-        onehot = one_hot(target)
-        output[onehot == 0] += (2**0.5) * start_epsilon * lipschitz
-        loss = criterion(output, target) #+ F.kl_div(y_pred_soft, y_true)
+        y_bot_i = output + start_epsilon * K_ij
+        y_bot_i = torch.where(torch.eq(output, y_j), -np.infty + torch.zeros_like(y_bot_i), y_bot_i)
+        y_bot = torch.max(y_bot_i, dim=1, keepdims=True)[0]
+
+        y_pred = torch.cat([output, y_bot], dim=1)
+        standard_loss = criterion(y_pred[:, :-1], target)
+
+        y_pred_soft = torch.softmax(y_pred, dim=1)
+        new_ground_truth = torch.cat([torch.softmax(y_pred[:, :-1], dim=1), 
+                                      torch.zeros(output.shape[0], 1).cuda()], dim=1)
+        robust_loss = F.kl_div(y_pred_soft, new_ground_truth)
+        # onehot = one_hot(target)
+        # output[onehot == 0] += (2**0.5) * start_epsilon * lipschitz
+        loss = standard_loss + 1.5 * robust_loss
         loss.backward()
         optimizer.step()
         
-        if i % 100 == 0:
-            print(f"[{i * len(data)} / {total_samples} ({100 * i / len(data_loader)} )]  Loss: {loss.item()}")        
-            loss_history.append(loss.item())
+        loss_history.append(loss.item())
+        standard_losses.append(standard_loss.item())
+        robust_losses.append(robust_loss.item())
+        lipschitzs.append(lipschitz)
+        
+    print(f"Avg. Standard Loss: {np.mean(standard_losses):.2f} Avg. Robust Loss: {np.mean(robust_losses):.2f} Avg. Lipschitz {np.mean(lipschitzs):.2f}")        
+   
 
-    print(f"Lipschitz: {lipschitz}")
-
-def evaluate(model, criterion, data_loader, loss_history):
+def evaluate(model, criterion, data_loader, loss_history, epsilon):
     model.eval()
 
     # Calculate Lipshitz of the network
@@ -140,6 +144,7 @@ def evaluate(model, criterion, data_loader, loss_history):
     total_samples = len(data_loader.dataset)
     correct_samples = 0
     total_loss = 0
+    correct_samples_eps = 0
 
     with torch.no_grad():
         for data, target in data_loader:
@@ -152,10 +157,16 @@ def evaluate(model, criterion, data_loader, loss_history):
             total_loss += loss.item()
             correct_samples += pred.eq(target).sum()
 
+            output_eps = model(data + epsilon)
+            _, pred_eps = torch.max(output_eps, dim=1)
+            correct_samples_eps += pred_eps.eq(target).sum()
+
     avg_loss = total_loss / total_samples
     loss_history.append(avg_loss)
-    print(f"\nAverage test loss: {avg_loss}  Accuracy: {correct_samples} /{total_samples} ({100.0 * correct_samples / total_samples} )\n")
-    print(f"Lipschitz: {lipschitz}")
+    print(f"\nAverage test loss: {avg_loss:.2f}  \
+ Accuracy: {correct_samples} /{total_samples} ({(100.0 * correct_samples / total_samples):.2f} )\
+ Lipschitz {lipschitz:.2f} \
+ Certified Accuracy {(100.0 * correct_samples_eps / total_samples):.2f} \n")
 
 
 eps_schedule = np.linspace(STARTING_EPSILON,
@@ -214,11 +225,11 @@ for epoch in range(1, EPOCHS + 1):
     if epoch < WARMUP:
         print('Epoch:', epoch)
         train_epoch(model, criterion, optimizer, train_loader, train_loss_history)
-        evaluate(model, criterion, test_loader, test_loss_history)
+        evaluate(model, criterion, test_loader, test_loss_history, EPSILON)
     else:
         print (f"Robust Epoch: {epoch} Epsilon: {epsilon}")
         train_robust(model, criterion, optimizer, train_loader, train_loss_history, epsilon, kappa)
-        evaluate(model, criterion, test_loader, test_loss_history)
+        evaluate(model, criterion, test_loader, test_loss_history, EPSILON)
         evaluate_pgd(test_loader, model, EPSILON, NITER, ALPHA)
         print ("\n%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n")
 

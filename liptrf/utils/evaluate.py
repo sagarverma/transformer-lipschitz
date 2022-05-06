@@ -1,3 +1,4 @@
+from math import ceil
 import numpy as np
 import torch
 import torch.nn as nn 
@@ -24,14 +25,4 @@ def evaluate_pgd(loader, model, epsilon, niter, alpha):
         out = model(X_pgd)
         acc = (out.data.max(1)[1] == y).float().sum() / X.size(0)
         accs.append(acc.data.cpu().item())
-    print(f' PGD Accuracy {np.mean(accs) * 100}')
-
-
-# def evaluate_robust(loader, model):
-#     model.eval()
-
-#     errors = []
-
-#     torch.set_grad_enabled(False)
-#     for i, (X,y) in enumerate(loader):
-#         X,y = X.cuda(), y.cuda()
+    print(f'PGD Accuracy {np.mean(accs) * 100:.2f}')

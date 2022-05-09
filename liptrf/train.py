@@ -25,7 +25,7 @@ BATCH_SIZE_TRAIN = 256
 BATCH_SIZE_TEST = 2048
 EPOCHS = 300
 RAMPUP = 150
-WARMUP = 0
+WARMUP = 10
 OPT = "adam"
 MOMENTUM = 0.9
 WEIGHT_DECAY = 0.0
@@ -47,7 +47,7 @@ KAPPA_SCEDULER_LENGTH = RAMPUP
 NITER = 100 
 ALPHA = EPSILON / 4
 
-DEPTH = 1
+DEPTH = 6
 HEADS = 8
 
 def one_hot(batch, depth=10):
@@ -101,7 +101,7 @@ def train_robust(model, criterion, optimizer, data_loader, loss_history, epsilon
         
         lipschitz = model.lipschitz().item()
         # print (lipschitz)
-        kW = lipschitz * model.fc3.weight.clone().detach().T
+        kW = lipschitz * model.mlp_head[1].weight.clone().detach().T
         j = torch.argmax(output, dim=1)
         y_j = torch.max(output, dim=1, keepdim=True)[0]
         kW_j = kW.T[j]
@@ -177,9 +177,9 @@ kappa_schedule = np.linspace(STARTING_KAPPA,
                              KAPPA_SCEDULER_LENGTH)
 
 start_time = time.time()
-# model = ViT(image_size=28, patch_size=7, num_classes=10, channels=1,
-#             dim=128, depth=DEPTH, heads=HEADS, mlp_ratio=4, attention_type='L2').cuda()
-model = LinearNet().cuda()
+model = ViT(image_size=28, patch_size=7, num_classes=10, channels=1,
+            dim=128, depth=DEPTH, heads=HEADS, mlp_ratio=4, attention_type='L2').cuda()
+# model = LinearNet().cuda()
 # model = ConvNet().cuda()
 if OPT == 'adam': 
     optimizer = optim.Adam(model.parameters(), lr=LR)

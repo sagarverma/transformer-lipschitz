@@ -33,7 +33,7 @@ def batch_set_value(tuples):
 
 
 def get_value(x):
-    return x.numpy()
+    return x
 
 
 def l2_normalize(x):

@@ -46,6 +46,7 @@ class LipschitzComputer(object):
     @staticmethod
     def for_layer(layer, num_iterations):
         if hasattr(layer, 'kernel'):
+            print (layer)
             if len(layer.kernel.shape) == 4:
                 return ConvLayerComputer(layer, num_iterations)
 

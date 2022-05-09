@@ -13,6 +13,7 @@ from tensorflow.keras.losses import SparseCategoricalCrossentropy
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam, SGD
 from tensorflow.keras.optimizers import SGD
+import tensorflow as tf
 
 from gloro import GloroNet
 from gloro.training import losses
@@ -64,7 +65,9 @@ def train_gloro(
 
         if '.' in architecture:
             architecture, params = architecture.split('.', 1)
-
+            # print (params)
+            
+        print (architectures, architecture)
         architecture = getattr(architectures, architecture)(
             input_shape, num_classes, **json.loads(params))
 
@@ -157,5 +160,9 @@ if __name__ == '__main__':
         })
 
         print(results)
+        lip_const = tf.math.reduce_max(g.lipschitz_constant())
+        print (f"Lipschitz: {lip_const}")
+        
+        g.save(f"checkpoints/{architecture}_spec_{dataset}_es-{epochs}_bs-{batch_size}_lip-{lip_const}.gloronet")
 
         return results

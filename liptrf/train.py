@@ -177,9 +177,9 @@ kappa_schedule = np.linspace(STARTING_KAPPA,
                              KAPPA_SCEDULER_LENGTH)
 
 start_time = time.time()
-# model = ViT(image_size=28, patch_size=7, num_classes=10, channels=1,
-#             dim=128, depth=DEPTH, heads=HEADS, mlp_ratio=4, attention_type='L2').cuda()
-model = LinearNet().cuda()
+model = ViT(image_size=28, patch_size=7, num_classes=10, channels=1,
+            dim=128, depth=DEPTH, heads=HEADS, mlp_ratio=4, attention_type='L2').cuda()
+# model = LinearNet().cuda()
 # model = ConvNet().cuda()
 if OPT == 'adam': 
     optimizer = optim.Adam(model.parameters(), lr=LR)

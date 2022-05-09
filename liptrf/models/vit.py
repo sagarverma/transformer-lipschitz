@@ -1,5 +1,6 @@
 import numpy as np 
 from scipy.special import lambertw 
+from scipy.stats import truncnorm 
 
 import torch
 from torch import nn
@@ -14,6 +15,12 @@ def pair(t):
     return t if isinstance(t, tuple) else (t, t)
 
 # classes
+
+def l2_normalize(x):
+    return x / (torch.sqrt(torch.sum(x**2.)) + 1e-9)
+
+def trunc(shape):
+    return torch.from_numpy(truncnorm.rvs(-2, 2, size=shape)).cuda().float()
 
 class PreNorm(nn.Module):
     def __init__(
@@ -48,8 +55,8 @@ class FeedForward(nn.Module):
             nn.Dropout(dropout)
         )
 
-        # torch.nn.init.xavier_uniform_(self.net[0].weight, gain=1/(6 ** 0.5))
-        # torch.nn.init.xavier_uniform_(self.net[3].weight, gain=1/(6 ** 0.5))
+        nn.init.orthogonal_(self.net[0].weight)
+        nn.init.orthogonal_(self.net[3].weight)
 
     def forward(
         self, 
@@ -58,10 +65,18 @@ class FeedForward(nn.Module):
         return self.net(x)
 
     def lipschitz(self):
-        l1 = norm(self.net[0].weight, ord=2)
-        l2 = norm(self.net[3].weight, ord=2)
+        l1 = self.power_iter(self.net[0].weight, trunc(self.net[0].weight.shape[0]))
+        l2 = self.power_iter(self.net[3].weight, trunc(self.net[3].weight.shape[0]))
         # print (f"MLP: {1.12 * l1 * l2}, {l1}, {l2}")
         return 1.12 * l1 * l2
+    
+    def power_iter(self, W, x):
+        for i in range(100):
+            x = l2_normalize(x)
+            x_p = W @ x 
+            x = W.T @ x_p 
+
+        return torch.sqrt(torch.sum(W @ x)**2 / (torch.sum(x**2) + 1e-9))
 
 class L2Attention(nn.Module):
     def __init__(
@@ -90,11 +105,8 @@ class L2Attention(nn.Module):
             nn.Dropout(dropout)
         ) 
 
-        # const = (1/16/(dim ** 0.5))
-        # torch.nn.init.uniform_(self.to_qv.weight, -1 * const, const)
-        # torch.nn.init.uniform_(self.to_out[0].weight, -1 * const, const)
-        # torch.nn.init.xavier_uniform_(self.to_qv.weight, gain=1/(6 ** 0.5))
-        # torch.nn.init.xavier_uniform_(self.to_out[0].weight, gain=1/(6 ** 0.5))
+        nn.init.orthogonal_(self.to_qv.weight)
+        nn.init.orthogonal_(self.to_out[0].weight)
 
     def forward(
         self, 
@@ -129,10 +141,18 @@ class L2Attention(nn.Module):
         v3 = 0
         w = D//H
         for i in range(H):
-            v3 += torch.pow(norm(W_Q[i*w: (i +1) * w, :], ord=2), 2) * torch.pow(norm(W_V[i*w: (i +1) * w, :], ord=2), 2)
-        v3 = torch.sqrt(v3) * norm(W_o, ord=2)
+            v3 += self.power_iter(W_Q[i*w: (i +1) * w, :], w) * self.power_iter(W_V[i*w: (i +1) * w, :], w)
+        v3 = self.power_iter(W_o, trunc(W_o.shape[0]))
         # print (f"{v1*v2*v3}, {v1}, {v2}, {v3}")
         return v1 * v2 * v3
+
+    def power_iter(self, W, x):
+        for i in range(100):
+            x = l2_normalize(x)
+            x_p = W @ x 
+            x = W.T @ x_p 
+
+        return torch.sqrt(torch.sum(W @ x)**2 / (torch.sum(x**2) + 1e-9))
 
 class Attention(nn.Module):
     def __init__(
@@ -264,8 +284,8 @@ class ViT(nn.Module):
             nn.Linear(dim, num_classes, bias=False)
         )
 
-        # torch.nn.init.xavier_uniform_(self.to_patch_embedding[1].weight, gain=1/(6 ** 0.5))
-        # torch.nn.init.xavier_uniform_(self.mlp_head[1].weight, gain=1/(6 ** 0.5))
+        nn.init.orthogonal_(self.to_patch_embedding[1].weight)
+        nn.init.orthogonal_(self.mlp_head[1].weight)
 
     def forward(
         self, 
@@ -287,8 +307,16 @@ class ViT(nn.Module):
         return self.mlp_head(x)
 
     def lipschitz(self):
-        v1 = norm(self.to_patch_embedding[1].weight, ord=2)
+        v1 = self.power_iter(self.to_patch_embedding[1].weight, trunc(self.to_patch_embedding[1].weight.shape[0]))
         v2 = self.transformer.lipschitz()
-        v3 = norm(self.mlp_head[1].weight, ord=2)
+        v3 = self.power_iter(self.mlp_head[1].weight, trunc(self.mlp_head[1].weight.shape[0]))
         # print (f"Complete: {v1 * v2 * v3}, {v1}, {v2}, {v3}")
         return v1 * v2 * v3
+
+    def power_iter(self, W, x):
+        for i in range(100):
+            x = l2_normalize(x)
+            x_p = W @ x 
+            x = W.T @ x_p 
+
+        return torch.sqrt(torch.sum(W @ x)**2 / (torch.sum(x**2) + 1e-9))

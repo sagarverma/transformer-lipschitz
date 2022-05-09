@@ -25,7 +25,7 @@ BATCH_SIZE_TRAIN = 256
 BATCH_SIZE_TEST = 2048
 EPOCHS = 300
 RAMPUP = 150
-WARMUP = 10
+WARMUP = 0
 OPT = "adam"
 MOMENTUM = 0.9
 WEIGHT_DECAY = 0.0
@@ -92,7 +92,7 @@ def train_robust(model, criterion, optimizer, data_loader, loss_history, epsilon
     model.train()
     for i, (data, target) in enumerate(data_loader):
         start_epsilon = epsilon + i / len(data_loader) * (EPSILON_TRAIN - STARTING_EPSILON )/ SCHEDULE_LENGTH
-        start_kappa = kappa + i/ len(data_loader)*  (KAPPA - STARTING_KAPPA) / SCHEDULE_LENGTH
+        # start_kappa = kappa + i/ len(data_loader)*  (KAPPA - STARTING_KAPPA) / SCHEDULE_LENGTH
 
         data = data.cuda()
         target = target.cuda()
@@ -177,9 +177,9 @@ kappa_schedule = np.linspace(STARTING_KAPPA,
                              KAPPA_SCEDULER_LENGTH)
 
 start_time = time.time()
-model = ViT(image_size=28, patch_size=7, num_classes=10, channels=1,
-            dim=128, depth=DEPTH, heads=HEADS, mlp_ratio=4, attention_type='L2').cuda()
-# model = LinearNet().cuda()
+# model = ViT(image_size=28, patch_size=7, num_classes=10, channels=1,
+#             dim=128, depth=DEPTH, heads=HEADS, mlp_ratio=4, attention_type='L2').cuda()
+model = LinearNet().cuda()
 # model = ConvNet().cuda()
 if OPT == 'adam': 
     optimizer = optim.Adam(model.parameters(), lr=LR)

@@ -65,13 +65,13 @@ class FeedForward(nn.Module):
         return self.net(x)
 
     def lipschitz(self):
-        l1 = self.power_iter(self.net[0].weight, trunc(self.net[0].weight.shape[0]))
-        l2 = self.power_iter(self.net[3].weight, trunc(self.net[3].weight.shape[0]))
+        l1 = self.power_iter(self.net[0].weight, trunc(self.net[0].weight.shape[1]))
+        l2 = self.power_iter(self.net[3].weight, trunc(self.net[3].weight.shape[1]))
         # print (f"MLP: {1.12 * l1 * l2}, {l1}, {l2}")
         return 1.12 * l1 * l2
     
     def power_iter(self, W, x):
-        for i in range(100):
+        for i in range(5):
             x = l2_normalize(x)
             x_p = W @ x 
             x = W.T @ x_p 
@@ -141,13 +141,13 @@ class L2Attention(nn.Module):
         v3 = 0
         w = D//H
         for i in range(H):
-            v3 += self.power_iter(W_Q[i*w: (i +1) * w, :], w) * self.power_iter(W_V[i*w: (i +1) * w, :], w)
-        v3 = self.power_iter(W_o, trunc(W_o.shape[0]))
+            v3 += self.power_iter(W_Q[i*w: (i +1) * w, :], trunc(D)) * self.power_iter(W_V[i*w: (i +1) * w, :], trunc(D))
+        v3 = self.power_iter(W_o, trunc(W_o.shape[1]))
         # print (f"{v1*v2*v3}, {v1}, {v2}, {v3}")
         return v1 * v2 * v3
 
     def power_iter(self, W, x):
-        for i in range(100):
+        for i in range(5):
             x = l2_normalize(x)
             x_p = W @ x 
             x = W.T @ x_p 
@@ -307,14 +307,14 @@ class ViT(nn.Module):
         return self.mlp_head(x)
 
     def lipschitz(self):
-        v1 = self.power_iter(self.to_patch_embedding[1].weight, trunc(self.to_patch_embedding[1].weight.shape[0]))
+        v1 = self.power_iter(self.to_patch_embedding[1].weight, trunc(self.to_patch_embedding[1].weight.shape[1]))
         v2 = self.transformer.lipschitz()
-        v3 = self.power_iter(self.mlp_head[1].weight, trunc(self.mlp_head[1].weight.shape[0]))
+        v3 = self.power_iter(self.mlp_head[1].weight, trunc(self.mlp_head[1].weight.shape[1]))
         # print (f"Complete: {v1 * v2 * v3}, {v1}, {v2}, {v3}")
         return v1 * v2 * v3
 
     def power_iter(self, W, x):
-        for i in range(100):
+        for i in range(5):
             x = l2_normalize(x)
             x_p = W @ x 
             x = W.T @ x_p 

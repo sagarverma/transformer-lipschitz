@@ -25,7 +25,7 @@ BATCH_SIZE_TRAIN = 256
 BATCH_SIZE_TEST = 2048
 EPOCHS = 300
 RAMPUP = 150
-WARMUP = 10
+WARMUP = 0
 OPT = "adam"
 MOMENTUM = 0.9
 WEIGHT_DECAY = 0.0
@@ -99,9 +99,10 @@ def train_robust(model, criterion, optimizer, data_loader, loss_history, epsilon
         optimizer.zero_grad()
         output = model(data)
         
-        lipschitz = model.lipschitz().item()
-        # print (lipschitz)
-        kW = lipschitz * model.mlp_head[1].weight.clone().detach().T
+        with torch.no_grad():
+            lipschitz = model.lipschitz().data.cpu()
+            # print (lipschitz)
+        kW = lipschitz * model.fc3.weight.clone().detach().T
         j = torch.argmax(output, dim=1)
         y_j = torch.max(output, dim=1, keepdim=True)[0]
         kW_j = kW.T[j]
@@ -119,7 +120,7 @@ def train_robust(model, criterion, optimizer, data_loader, loss_history, epsilon
 
         y_pred_soft = torch.softmax(y_pred, dim=1)
         new_ground_truth = torch.cat([torch.softmax(y_pred[:, :-1], dim=1), 
-                                      torch.zeros(output.shape[0], 1).cuda()], dim=1)
+                                    torch.zeros(output.shape[0], 1).cuda()], dim=1)
         robust_loss = F.kl_div(y_pred_soft, new_ground_truth)
         # onehot = one_hot(target)
         # output[onehot == 0] += (2**0.5) * start_epsilon * lipschitz
@@ -137,9 +138,6 @@ def train_robust(model, criterion, optimizer, data_loader, loss_history, epsilon
 
 def evaluate(model, criterion, data_loader, loss_history, epsilon):
     model.eval()
-
-    # Calculate Lipshitz of the network
-    lipschitz = model.lipschitz()
     
     total_samples = len(data_loader.dataset)
     correct_samples = 0
@@ -147,6 +145,7 @@ def evaluate(model, criterion, data_loader, loss_history, epsilon):
     correct_samples_eps = 0
 
     with torch.no_grad():
+        lipschitz = model.lipschitz()
         for data, target in data_loader:
             data = data.cuda()
             target = target.cuda()
@@ -177,9 +176,9 @@ kappa_schedule = np.linspace(STARTING_KAPPA,
                              KAPPA_SCEDULER_LENGTH)
 
 start_time = time.time()
-model = ViT(image_size=28, patch_size=7, num_classes=10, channels=1,
-            dim=128, depth=DEPTH, heads=HEADS, mlp_ratio=4, attention_type='L2').cuda()
-# model = LinearNet().cuda()
+# model = ViT(image_size=28, patch_size=7, num_classes=10, channels=1,
+#             dim=128, depth=DEPTH, heads=HEADS, mlp_ratio=4, attention_type='L2').cuda()
+model = LinearNet().cuda()
 # model = ConvNet().cuda()
 if OPT == 'adam': 
     optimizer = optim.Adam(model.parameters(), lr=LR)

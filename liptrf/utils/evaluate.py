@@ -18,7 +18,7 @@ def evaluate_pgd(loader, model, epsilon, niter, alpha):
         nb_iter=niter, eps_iter=alpha, rand_init=True, clip_min=0.0, clip_max=1.0, targeted=False)
 
     for i, (X,y) in enumerate(loader):
-        X,y = X.cuda(), y.cuda()
+        # X,y = X.cuda(), y.cuda()
         with ctx_noparamgrad_and_eval(model):
             X_pgd = adversary.perturb(X, y)
             

@@ -1,4 +1,4 @@
-import numpy as np 
+import numpy as np
 from scipy.special import lambertw 
 from scipy.stats import truncnorm 
 
@@ -9,18 +9,13 @@ from torch.linalg import norm
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
 
+from .linear_toy import LinearX
+
 # helpers
 
 def pair(t):
     return t if isinstance(t, tuple) else (t, t)
 
-# classes
-
-def l2_normalize(x):
-    return x / (torch.sqrt(torch.sum(x**2.)) + 1e-9)
-
-def trunc(shape):
-    return torch.from_numpy(truncnorm.rvs(-2, 2, size=shape)).cuda().float()
 
 class PreNorm(nn.Module):
     def __init__(
@@ -47,37 +42,35 @@ class FeedForward(nn.Module):
         dropout: float = 0.
     ) -> None:
         super().__init__()
-        self.net = nn.Sequential(
-            nn.Linear(dim, hidden_dim, bias=False),
-            nn.GELU(),
-            nn.Dropout(dropout),
-            nn.Linear(hidden_dim, dim, bias=False),
-            nn.Dropout(dropout)
-        )
-
-        nn.init.orthogonal_(self.net[0].weight)
-        nn.init.orthogonal_(self.net[3].weight)
-
+        self.fc1 = LinearX(dim, hidden_dim, alpha=0.1)
+        self.gelu = nn.GELU()
+        self.dropout = nn.Dropout(dropout)
+        self.fc2 = LinearX(hidden_dim, dim, alpha=0.1)
+        
+     
     def forward(
         self, 
         x: torch.tensor
     ) -> torch.tensor:
-        return self.net(x)
+        x = self.dropout(self.gelu(self.fc1(x)))
+        x = self.dropout(self.fc2(x))
+        return x
 
     def lipschitz(self):
-        l1 = self.power_iter(self.net[0].weight, trunc(self.net[0].weight.shape[1]))
-        l2 = self.power_iter(self.net[3].weight, trunc(self.net[3].weight.shape[1]))
-        # print (f"MLP: {1.12 * l1 * l2}, {l1}, {l2}")
-        return 1.12 * l1 * l2
-    
-    def power_iter(self, W, x):
-        for i in range(5):
-            x = l2_normalize(x)
-            x_p = W @ x 
-            x = W.T @ x_p 
+        lc = 1 
+        for layer in self.children():
+            if isinstance(layer, LinearX):
+                lc *= layer.lipschitz()
+            if isinstance(layer, nn.GELU):
+                lc *= 1.12
+        
+        return lc
 
-        return torch.sqrt(torch.sum(W @ x)**2 / (torch.sum(x**2) + 1e-9))
-
+    def apply_spec(self):
+        for layer in self.children():
+            if isinstance(layer, LinearX):
+                layer.apply_spec()
+       
 class L2Attention(nn.Module):
     def __init__(
         self, 
@@ -96,17 +89,13 @@ class L2Attention(nn.Module):
         self.scale = dim_head ** -0.5
 
         self.attend = nn.Softmax(dim = -1)
-        self.dropout = nn.Dropout(dropout)
 
-        self.to_qv = nn.Linear(dim, dim * 2, bias = False)
+        self.to_qv = LinearX(dim, dim * 2, alpha=1)
 
-        self.to_out = nn.Sequential(
-            nn.Linear(dim, dim, bias=False),
-            nn.Dropout(dropout)
-        ) 
+        self.to_out = LinearX(dim, dim, alpha=1)
+        self.dropout =  nn.Dropout(dropout)
+         
 
-        nn.init.orthogonal_(self.to_qv.weight)
-        nn.init.orthogonal_(self.to_out[0].weight)
 
     def forward(
         self, 
@@ -119,40 +108,29 @@ class L2Attention(nn.Module):
         dots = q @ q.transpose(-2, -1)
         q_l2 = torch.pow(norm(q, dim=-1, ord=2), 2).unsqueeze(-1)
         k_l2 = torch.pow(norm(q, dim=-1, ord=2), 2).unsqueeze(-1)
-        q_l2 = torch.matmul(q_l2, torch.ones(q_l2.shape).transpose(-1, -2).cuda())
-        k_l2 = torch.matmul(torch.ones(k_l2.shape).cuda(), k_l2.transpose(-1, -2))
+        q_l2 = torch.matmul(q_l2, torch.ones(q_l2.shape).transpose(-1, -2))
+        k_l2 = torch.matmul(torch.ones(k_l2.shape), k_l2.transpose(-1, -2))
         
         attn = (-1 * (q_l2 - 2 * dots + k_l2) * self.scale).softmax(dim=-1)
         attn = self.dropout(attn)
         
         out = torch.matmul(attn, v)
         out = rearrange(out, 'b h n d -> b n (h d)')
-        return self.to_out(out)
+        return self.dropout(self.to_out(out))
 
     def lipschitz(self):
         N = self.n_value 
         D = self.dim 
         H = self.heads
-        W_Q = self.to_qv.weight[:D, :]
-        W_V = self.to_qv.weight[D:, :]
-        W_o = self.to_out[0].weight
         v1 = np.sqrt(N / (D / H))
         v2 = 4 * lambertw(N / np.exp(1)).real + 1
-        v3 = 0
-        w = D//H
-        for i in range(H):
-            v3 += self.power_iter(W_Q[i*w: (i +1) * w, :], trunc(D)) * self.power_iter(W_V[i*w: (i +1) * w, :], trunc(D))
-        v3 = self.power_iter(W_o, trunc(W_o.shape[1]))
-        # print (f"{v1*v2*v3}, {v1}, {v2}, {v3}")
+        v3 = self.to_qv.lipschitz() * self.to_out.lipschitz()
         return v1 * v2 * v3
 
-    def power_iter(self, W, x):
-        for i in range(5):
-            x = l2_normalize(x)
-            x_p = W @ x 
-            x = W.T @ x_p 
-
-        return torch.sqrt(torch.sum(W @ x)**2 / (torch.sum(x**2) + 1e-9))
+    def apply_spec(self):
+        for layer in self.children():
+            if isinstance(layer, LinearX):
+                layer.apply_spec()
 
 class Attention(nn.Module):
     def __init__(
@@ -166,18 +144,15 @@ class Attention(nn.Module):
         assert dim % heads == 0, 'dim should be divisible by heads'
         dim_head = dim //  heads
 
-        self.heads = heads
+        dim_head = dim //  heads
         self.scale = dim_head ** -0.5
 
         self.attend = nn.Softmax(dim = -1)
-        self.dropout = nn.Dropout(dropout)
 
-        self.to_qkv = nn.Linear(dim, dim * 3, bias = False)
+        self.to_qv = LinearX(dim, dim * 3)
 
-        self.to_out = nn.Sequential(
-            nn.Linear(dim, dim),
-            nn.Dropout(dropout)
-        )
+        self.to_out = LinearX(dim, dim)
+        self.dropout =  nn.Dropout(dropout)
 
     def forward(
         self, 
@@ -232,10 +207,14 @@ class Transformer(nn.Module):
     def lipschitz(self):
         total = 1
         for attn, ff in self.layers:
-            # print (f"Transformer: {(attn.fn.lipschitz() + 1) * (ff.fn.lipschitz() + 1)}")
             total *= ((attn.fn.lipschitz() + 1) * (ff.fn.lipschitz() + 1))
 
         return total 
+
+    def apply_spec(self):
+        for attn, ff in self.layers:
+            attn.fn.apply_spec()
+            ff.fn.apply_spec()
 
 class ViT(nn.Module):
     def __init__(
@@ -264,10 +243,8 @@ class ViT(nn.Module):
         patch_dim = channels * patch_height * patch_width
         assert pool in {'cls', 'mean'}, 'pool type must be either cls (cls token) or mean (mean pooling)'
 
-        self.to_patch_embedding = nn.Sequential(
-            Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1 = patch_height, p2 = patch_width),
-            nn.Linear(patch_dim, dim, bias=False),
-        )
+        self.rearrange_patch = Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1 = patch_height, p2 = patch_width)
+        self.to_patch_embedding = LinearX(patch_dim, dim, alpha=1)
 
         self.pos_embedding = nn.Parameter(torch.randn(1, num_patches + 1, dim))
         self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
@@ -279,19 +256,15 @@ class ViT(nn.Module):
         self.pool = pool
         self.to_latent = nn.Identity()
 
-        self.mlp_head = nn.Sequential(
-            nn.LayerNorm(dim),
-            nn.Linear(dim, num_classes, bias=False)
-        )
-
-        nn.init.orthogonal_(self.to_patch_embedding[1].weight)
-        nn.init.orthogonal_(self.mlp_head[1].weight)
+        self.mlp_ln = nn.LayerNorm(dim)
+        self.mlp_head = LinearX(dim, num_classes, alpha=1)
 
     def forward(
         self, 
         img: torch.tensor
     ) -> torch.tensor:
-        x = self.to_patch_embedding(img)
+        x = self.rearrange_patch(img)
+        x = self.to_patch_embedding(x)
         b, n, _ = x.shape
 
         cls_tokens = repeat(self.cls_token, '1 n d -> b n d', b = b)
@@ -304,19 +277,16 @@ class ViT(nn.Module):
         x = x.mean(dim = 1) if self.pool == 'mean' else x[:, 0]
 
         x = self.to_latent(x)
+        x = self.mlp_ln(x)
         return self.mlp_head(x)
 
     def lipschitz(self):
-        v1 = self.power_iter(self.to_patch_embedding[1].weight, trunc(self.to_patch_embedding[1].weight.shape[1]))
+        v1 = self.to_patch_embedding.lipschitz()
         v2 = self.transformer.lipschitz()
-        v3 = self.power_iter(self.mlp_head[1].weight, trunc(self.mlp_head[1].weight.shape[1]))
-        # print (f"Complete: {v1 * v2 * v3}, {v1}, {v2}, {v3}")
+        v3 = self.mlp_head.lipschitz()
         return v1 * v2 * v3
 
-    def power_iter(self, W, x):
-        for i in range(5):
-            x = l2_normalize(x)
-            x_p = W @ x 
-            x = W.T @ x_p 
-
-        return torch.sqrt(torch.sum(W @ x)**2 / (torch.sum(x**2) + 1e-9))
+    def apply_spec(self):
+        self.to_patch_embedding.apply_spec()
+        self.transformer.apply_spec()
+        self.mlp_head.apply_spec()

@@ -42,10 +42,10 @@ class FeedForward(nn.Module):
         dropout: float = 0.
     ) -> None:
         super().__init__()
-        self.fc1 = LinearX(dim, hidden_dim, alpha=0.1)
+        self.fc1 = LinearX(dim, hidden_dim, iter=2, alpha=0.5)
         self.gelu = nn.GELU()
         self.dropout = nn.Dropout(dropout)
-        self.fc2 = LinearX(hidden_dim, dim, alpha=0.1)
+        self.fc2 = LinearX(hidden_dim, dim, iter=2, alpha=0.5)
         
      
     def forward(
@@ -90,9 +90,9 @@ class L2Attention(nn.Module):
 
         self.attend = nn.Softmax(dim = -1)
 
-        self.to_qv = LinearX(dim, dim * 2, alpha=1)
+        self.to_qv = LinearX(dim, dim * 2, iter=2, alpha=0.5)
 
-        self.to_out = LinearX(dim, dim, alpha=1)
+        self.to_out = LinearX(dim, dim, iter=2, alpha=0.5)
         self.dropout =  nn.Dropout(dropout)
          
 
@@ -108,8 +108,8 @@ class L2Attention(nn.Module):
         dots = q @ q.transpose(-2, -1)
         q_l2 = torch.pow(norm(q, dim=-1, ord=2), 2).unsqueeze(-1)
         k_l2 = torch.pow(norm(q, dim=-1, ord=2), 2).unsqueeze(-1)
-        q_l2 = torch.matmul(q_l2, torch.ones(q_l2.shape).transpose(-1, -2))
-        k_l2 = torch.matmul(torch.ones(k_l2.shape), k_l2.transpose(-1, -2))
+        q_l2 = torch.matmul(q_l2, torch.ones(q_l2.shape).transpose(-1, -2).cuda())
+        k_l2 = torch.matmul(torch.ones(k_l2.shape).cuda(), k_l2.transpose(-1, -2))
         
         attn = (-1 * (q_l2 - 2 * dots + k_l2) * self.scale).softmax(dim=-1)
         attn = self.dropout(attn)
@@ -125,7 +125,7 @@ class L2Attention(nn.Module):
         v1 = np.sqrt(N / (D / H))
         v2 = 4 * lambertw(N / np.exp(1)).real + 1
         v3 = self.to_qv.lipschitz() * self.to_out.lipschitz()
-        return v1 * v2 * v3
+        return v3
 
     def apply_spec(self):
         for layer in self.children():
@@ -149,9 +149,9 @@ class Attention(nn.Module):
 
         self.attend = nn.Softmax(dim = -1)
 
-        self.to_qv = LinearX(dim, dim * 3)
+        self.to_qv = LinearX(dim, dim * 3, iter=2, alpha=0.5)
 
-        self.to_out = LinearX(dim, dim)
+        self.to_out = LinearX(dim, dim, iter=2, alpha=0.5)
         self.dropout =  nn.Dropout(dropout)
 
     def forward(
@@ -244,7 +244,7 @@ class ViT(nn.Module):
         assert pool in {'cls', 'mean'}, 'pool type must be either cls (cls token) or mean (mean pooling)'
 
         self.rearrange_patch = Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1 = patch_height, p2 = patch_width)
-        self.to_patch_embedding = LinearX(patch_dim, dim, alpha=1)
+        self.to_patch_embedding = LinearX(patch_dim, dim, iter=2, alpha=2)
 
         self.pos_embedding = nn.Parameter(torch.randn(1, num_patches + 1, dim))
         self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
@@ -257,7 +257,7 @@ class ViT(nn.Module):
         self.to_latent = nn.Identity()
 
         self.mlp_ln = nn.LayerNorm(dim)
-        self.mlp_head = LinearX(dim, num_classes, alpha=1)
+        self.mlp_head = LinearX(dim, num_classes, iter=2, alpha=1)
 
     def forward(
         self, 

@@ -15,7 +15,7 @@ def l2_normalize(x):
     return x / (torch.sqrt(torch.sum(x**2.)) + 1e-9)
 
 def trunc(shape):
-    return torch.from_numpy(truncnorm.rvs(-2, 2, size=shape)).float().cuda()
+    return torch.from_numpy(truncnorm.rvs(-2, 2, size=shape)).float()
 
 
 class LinearX(nn.Module):
@@ -23,7 +23,7 @@ class LinearX(nn.Module):
         super(LinearX, self).__init__()
         self.input = input
         self.weight = nn.Parameter(torch.Tensor(output, input))
-        self.rand_x = trunc(self.input)
+        self.rand_x = nn.Parameter(trunc(self.input), requires_grad=False)
         self.iter = iter
         self.lmbda = lmbda
         self.lc = 1.0
@@ -39,7 +39,7 @@ class LinearX(nn.Module):
         for i in range(self.iter):
             x = l2_normalize(self.rand_x)
             x_p = F.linear(x, self.weight) 
-            self.rand_x = F.linear(x_p, self.weight.T) 
+            self.rand_x = nn.Parameter(F.linear(x_p, self.weight.T), requires_grad=False)
 
         self.lc = torch.sqrt(torch.sum(self.weight @ x)**2 / (torch.sum(x**2) + 1e-9))
         del x, x_p

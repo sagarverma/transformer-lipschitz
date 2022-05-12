@@ -143,7 +143,7 @@ class Attention(nn.Module):
     ) -> None:
         super().__init__()
         assert dim % heads == 0, 'dim should be divisible by heads'
-        dim_head = dim //  heads
+        self.heads = heads
 
         dim_head = dim //  heads
         self.scale = dim_head ** -0.5
@@ -169,7 +169,10 @@ class Attention(nn.Module):
 
         out = torch.matmul(attn, v)
         out = rearrange(out, 'b h n d -> b n (h d)')
-        return self.to_out(out)
+        return self.dropout(self.to_out(out))
+
+    def lipschitz(self):
+        return float('nan')
 
 class Transformer(nn.Module):
     def __init__(

@@ -39,13 +39,14 @@ class FeedForward(nn.Module):
         self, 
         dim: int, 
         hidden_dim: int, 
-        dropout: float = 0.
+        dropout: float = 0.,
+        lmbda: float = 1.
     ) -> None:
         super().__init__()
-        self.fc1 = LinearX(dim, hidden_dim, iter=2, alpha=0.5)
+        self.fc1 = LinearX(dim, hidden_dim, iter=2, lmbda=lmbda)
         self.gelu = nn.GELU()
         self.dropout = nn.Dropout(dropout)
-        self.fc2 = LinearX(hidden_dim, dim, iter=2, alpha=0.5)
+        self.fc2 = LinearX(hidden_dim, dim, iter=2, lmbda=lmbda)
         
      
     def forward(
@@ -77,7 +78,8 @@ class L2Attention(nn.Module):
         dim: int, 
         heads: int = 8,
         dropout: float = 0.,
-        n_value: int = 1
+        n_value: int = 1,
+        lmbda: float = 1.
     ) -> None:
         super().__init__()
         assert dim % heads == 0, 'dim should be divisible by heads'
@@ -90,13 +92,11 @@ class L2Attention(nn.Module):
 
         self.attend = nn.Softmax(dim = -1)
 
-        self.to_qv = LinearX(dim, dim * 2, iter=2, alpha=0.5)
+        self.to_qv = LinearX(dim, dim * 2, iter=2, lmbda=lmbda)
 
-        self.to_out = LinearX(dim, dim, iter=2, alpha=0.5)
+        self.to_out = LinearX(dim, dim, iter=2, lmbda=lmbda)
         self.dropout =  nn.Dropout(dropout)
          
-
-
     def forward(
         self, 
         x: torch.tensor
@@ -125,7 +125,7 @@ class L2Attention(nn.Module):
         v1 = np.sqrt(N / (D / H))
         v2 = 4 * lambertw(N / np.exp(1)).real + 1
         v3 = self.to_qv.lipschitz() * self.to_out.lipschitz()
-        return v3
+        return v1 * v2 * v3
 
     def apply_spec(self):
         for layer in self.children():
@@ -138,7 +138,8 @@ class Attention(nn.Module):
         dim: int, 
         heads: int = 8, 
         dropout: float = 0.,
-        n_value: int = 1
+        n_value: int = 1, 
+        lmbda: float = 1.
     ) -> None:
         super().__init__()
         assert dim % heads == 0, 'dim should be divisible by heads'
@@ -149,9 +150,9 @@ class Attention(nn.Module):
 
         self.attend = nn.Softmax(dim = -1)
 
-        self.to_qv = LinearX(dim, dim * 3, iter=2, alpha=0.5)
+        self.to_qv = LinearX(dim, dim * 3, iter=2, lmbda=lmbda)
 
-        self.to_out = LinearX(dim, dim, iter=2, alpha=0.5)
+        self.to_out = LinearX(dim, dim, iter=2, lmbda=lmbda)
         self.dropout =  nn.Dropout(dropout)
 
     def forward(
@@ -179,7 +180,8 @@ class Transformer(nn.Module):
         mlp_ratio: int = 4,  
         dropout: float = 0., 
         attention_type: str = "DP",
-        n_value: int = 1
+        n_value: int = 1,
+        lmbda: float = 1.
     ) -> None:
         super().__init__()
         self.layers = nn.ModuleList([])
@@ -191,8 +193,8 @@ class Transformer(nn.Module):
 
         for _ in range(depth):
             self.layers.append(nn.ModuleList([
-                PreNorm(dim, attention(dim, heads = heads, dropout = dropout, n_value = n_value)),
-                PreNorm(dim, FeedForward(dim, mlp_hidden_dim, dropout = dropout))
+                PreNorm(dim, attention(dim, heads = heads, dropout = dropout, n_value = n_value, lmbda = lmbda)),
+                PreNorm(dim, FeedForward(dim, mlp_hidden_dim, dropout = dropout, lmbda = lmbda))
             ]))
 
     def forward(
@@ -231,7 +233,8 @@ class ViT(nn.Module):
         channels: int = 3, 
         dropout: int = 0., 
         emb_dropout: int = 0.,
-        attention_type: str = "DP"
+        attention_type: str = "DP",
+        lmbda: float = 1.
     ) -> None:
         super().__init__()
         image_height, image_width = pair(image_size)
@@ -244,20 +247,20 @@ class ViT(nn.Module):
         assert pool in {'cls', 'mean'}, 'pool type must be either cls (cls token) or mean (mean pooling)'
 
         self.rearrange_patch = Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1 = patch_height, p2 = patch_width)
-        self.to_patch_embedding = LinearX(patch_dim, dim, iter=2, alpha=2)
+        self.to_patch_embedding = LinearX(patch_dim, dim, iter=2, lmbda=lmbda)
 
         self.pos_embedding = nn.Parameter(torch.randn(1, num_patches + 1, dim))
         self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
         self.dropout = nn.Dropout(emb_dropout)
 
         self.transformer = Transformer(dim, depth, heads, mlp_ratio, dropout, 
-                                       attention_type, num_patches)
+                                       attention_type, num_patches, lmbda=lmbda)
 
         self.pool = pool
         self.to_latent = nn.Identity()
 
         self.mlp_ln = nn.LayerNorm(dim)
-        self.mlp_head = LinearX(dim, num_classes, iter=2, alpha=1)
+        self.mlp_head = LinearX(dim, num_classes, iter=2, lmbda=lmbda)
 
     def forward(
         self, 

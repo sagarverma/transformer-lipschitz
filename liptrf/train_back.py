@@ -20,12 +20,12 @@ from liptrf.utils.training import lr_exp
 # TODO: Use args not hard code
 torch.manual_seed(42)
 
-DOWNLOAD_PATH = './data/mnist'
+DOWNLOAD_PATH = './data/'
 BATCH_SIZE_TRAIN = 512
 BATCH_SIZE_TEST = 2048
 EPOCHS = 300
 RAMPUP = 150
-WARMUP = 10
+WARMUP = 300
 OPT = "adam"
 MOMENTUM = 0.9
 WEIGHT_DECAY = 0.0
@@ -38,7 +38,7 @@ WD_LIST = []
 
 
 EPSILON = 1.58
-EPSILON_TRAIN = 1.75
+EPSILON_TRAIN = 1.58
 STARTING_EPSILON = 0
 SCHEDULE_LENGTH = RAMPUP
 KAPPA = 0.0
@@ -127,7 +127,7 @@ def train_robust(model, criterion, optimizer, data_loader, loss_history, epsilon
         # onehot = one_hot(target)
         # output[onehot == 0] += (2**0.5) * start_epsilon * lipschitz
         loss = kappa * standard_loss + (1-kappa) * robust_loss
-        model.apply_spec()
+        # model.apply_spec()
         loss.backward()
         optimizer.step()
         
@@ -215,9 +215,9 @@ kappa_schedule = np.linspace(STARTING_KAPPA,
                              KAPPA_SCEDULER_LENGTH)
 
 start_time = time.time()
-model = ViT(image_size=28, patch_size=7, num_classes=10, channels=1,
-            dim=128, depth=DEPTH, heads=HEADS, mlp_ratio=4, attention_type='L2').cuda()
-# model = LinearNet().cuda()
+# model = ViT(image_size=28, patch_size=7, num_classes=10, channels=1,
+#             dim=128, depth=DEPTH, heads=HEADS, mlp_ratio=4, attention_type='L2').cuda()
+model = LinearNet().cuda()
 # model = ConvNet().cuda()
 if OPT == 'adam': 
     optimizer = optim.Adam(model.parameters(), lr=LR)

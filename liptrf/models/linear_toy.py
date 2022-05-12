@@ -19,13 +19,13 @@ def trunc(shape):
 
 
 class LinearX(nn.Module):
-    def __init__(self, input, output, iter=5, alpha=2.5):
+    def __init__(self, input, output, iter=5, lmbda=2.5):
         super(LinearX, self).__init__()
         self.input = input
         self.weight = nn.Parameter(torch.Tensor(output, input))
         self.rand_x = trunc(self.input)
         self.iter = iter
-        self.alpha = alpha
+        self.lmbda = lmbda
         self.lc = 1.0
 
         nn.init.orthogonal_(self.weight)
@@ -42,21 +42,25 @@ class LinearX(nn.Module):
             self.rand_x = F.linear(x_p, self.weight.T) 
 
         self.lc = torch.sqrt(torch.sum(self.weight @ x)**2 / (torch.sum(x**2) + 1e-9))
+        del x, x_p
+        torch.cuda.empty_cache()
         return self.lc.data.cpu()
 
     def apply_spec(self):
         fc = self.weight.clone().detach()
-        fc /= self.lc / self.alpha
+        fc = fc * 1 / (max(1, self.lc / self.lmbda))
         self.weight = nn.Parameter(fc)
+        del fc
+        torch.cuda.empty_cache()
 
 
 class Net(nn.Module):
 
-    def __init__(self, iter=10, alpha=1):
+    def __init__(self, iter=2, lmbda=1):
         super(Net, self).__init__()
-        self.fc1 = LinearX(784, 512, iter=iter, alpha=3)  # 5*5 from image dimension
-        self.fc2 = LinearX(512, 256, iter=iter, alpha=2)
-        self.fc3 = LinearX(256, 10, iter=iter, alpha=1)
+        self.fc1 = LinearX(784, 512, iter=iter, lmbda=lmbda)  # 5*5 from image dimension
+        self.fc2 = LinearX(512, 256, iter=iter, lmbda=lmbda)
+        self.fc3 = LinearX(256, 10, iter=iter, lmbda=lmbda)
        
     def forward(self, x):
         # Max pooling over a (2, 2) window
@@ -70,9 +74,10 @@ class Net(nn.Module):
         lc = 1 
         for layer in self.children():
             lc *= layer.lipschitz()
-        
+        torch.cuda.empty_cache()
         return lc
 
     def apply_spec(self):
         for layer in self.children():
             layer.apply_spec()
+        torch.cuda.empty_cache()

@@ -150,7 +150,7 @@ class Attention(nn.Module):
 
         self.attend = nn.Softmax(dim = -1)
 
-        self.to_qv = LinearX(dim, dim * 3, iter=2, lmbda=lmbda)
+        self.to_qkv = LinearX(dim, dim * 3, iter=2, lmbda=lmbda)
 
         self.to_out = LinearX(dim, dim, iter=2, lmbda=lmbda)
         self.dropout =  nn.Dropout(dropout)

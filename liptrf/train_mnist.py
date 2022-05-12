@@ -78,6 +78,8 @@ def main():
     parser.add_argument('--relax', action='store_true')
     parser.add_argument('--lmbda', type=float, default=1.)
     parser.add_argument('--warmup', type=int, default=10)
+    parser.add_argument('--attention_type', type=str, default='L2',
+                        help='L2/DP')
 
     parser.add_argument('--batch_size', type=int, default=64, metavar='N',
                         help='input batch size for training (default: 64)')
@@ -124,7 +126,7 @@ def main():
         args.layers = 3 
     if args.model == 'vit':
         model = ViT(image_size=28, patch_size=7, num_classes=10, channels=1,
-            dim=128, depth=args.layers, heads=8, mlp_ratio=4, attention_type='L2', lmbda=args.lmbda).cuda()
+            dim=128, depth=args.layers, heads=8, mlp_ratio=4, attention_type=args.attention_type, lmbda=args.lmbda).cuda()
     criterion = nn.CrossEntropyLoss()
     if args.opt == 'adam': 
         optimizer = optim.Adam(model.parameters(), lr=args.lr)
@@ -139,9 +141,13 @@ def main():
 
     if args.task == 'train':
         if not args.relax:
-            weight_path = os.path.join(args.weight_path, f"{args.model}_mnist_layers-{args.layers}.pt")
+            weight_path = os.path.join(args.weight_path, f"{args.model}_mnist_layers-{args.layers}")
         else:
-            weight_path = os.path.join(args.weight_path, f"{args.model}_mnist_layers-{args.layers}_relax-{args.lmbda}.pt")
+            weight_path = os.path.join(args.weight_path, f"{args.model}_mnist_layers-{args.layers}_relax-{args.lmbda}")
+        if args.model == 'vit':
+            weight_path += f"_att-{args.attention_type}.pt"
+        else:
+            weight_path += ".pt"
 
         if not os.path.exists(args.weight_path):
             os.mkdir(args.weight_path)

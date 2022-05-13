@@ -61,18 +61,26 @@ class LinearX(nn.Module):
         torch.cuda.empty_cache()
 
     def prox(self):
-        self.prox_weight /= self.relax
+        self.prox_weight = self.weight.clone() / self.relax
         self.proj_weight = 2 * self.prox_weight - self.weight
         self.proj_weight_n = self.proj_weight.clone()
 
     def proj(self):
-        cjn = torch.mean(torch.sum(F.linear(self.proj_weight_n, self.inp) - self.out)**2 - self.eta)  
-        if cjn > 0: 
-            cj = torch.mean(torch.sum(F.linear(self.proj_weight, self.inp) - self.out)**2 - self.eta)
-            num = 2 * torch.sum(F.linear(F.linear(self.proj_weight_n, self.inp) - self.out), self.inp.T)
+        # print (self.inp.shape, self.proj_weight_n.shape)
+        cjn = torch.mean(torch.sum(F.linear(self.inp, self.proj_weight_n) - self.out)**2 - self.eta)  
+        if cjn > 0:
+            cj = torch.mean(torch.sum(F.linear(self.inp, self.proj_weight) - self.out)**2 - self.eta)
+            if len(self.inp.shape) == 3:
+                num = 2 * torch.sum(torch.einsum("bnjd,bnci->bndc", 
+                                    (F.linear(self.inp, self.proj_weight_n) - self.out).unsqueeze(-2), 
+                                    self.inp.unsqueeze(-1)), dim=[0, 1])
+            else:
+                num = 2 * torch.sum(torch.einsum("bjd,bci->bdc", 
+                                    (F.linear(self.inp, self.proj_weight_n) - self.out).unsqueeze(-2), 
+                                    self.inp.unsqueeze(-1)), dim=0)
             den = torch.norm(num, 'fro')**2
             del_wn = cj * num / den 
-            pi_n =  torch.trace((self.proj_weight - self.proj_weight_n).T * del_wn)
+            pi_n =  torch.trace((self.proj_weight - self.proj_weight_n).T @ del_wn)
             mu_n = torch.norm(self.proj_weight - self.proj_weight_n, 'fro')**2
             vu_n = torch.norm(del_wn, 'fro')**2 
             chi_n = mu_n * vu_n - pi_n**2 

@@ -26,7 +26,7 @@ def liprex(args, model, device, train_loader, criterion):
             layer.prox()
 
     with torch.no_grad():
-        for prox_epoch in range(args.prox_epochs):
+        for proj_epoch in range(args.proj_epochs):
             for data, target in train_loader:
                 data, target = data.to(device), target.to(device)
                 output = model(data)
@@ -65,7 +65,7 @@ def main():
     parser = argparse.ArgumentParser(description='PyTorch MNIST ViT')
 
     parser.add_argument('--layers', type=int, default=1)
-    parser.add_argument('--gamma', default=1., type=float)
+    parser.add_argument('--relax', default=1., type=float)
     parser.add_argument('--eta', default=1e-7, type=float)
     parser.add_argument('--lr', default=1., type=float)
     parser.add_argument('--lipr_epochs', default=10, type=int)
@@ -106,22 +106,28 @@ def main():
 
     model = ViT(image_size=28, patch_size=7, num_classes=10, channels=1,
                 dim=128, depth=args.layers, heads=8, mlp_ratio=4, attention_type='L2', lmbda=1).cuda()
+    for layer in model.children():
+        if isinstance(layer, LinearX):
+            layer.relax = args.relax
+            layer.eta = args.eta 
+            layer.lr = args.lr 
     weight = torch.load(args.l2_weight_path)
     model.load_state_dict(weight)
     model.eval()
 
     criterion = nn.CrossEntropyLoss()
 
-    if args.task == 'train':
-        weight_path = args.l2_weight_path.replace('.pt', f"_gamma-{args.gamma}_eta-{args.eta}_lmbda-{args.lmbda}.pt")
 
-        best_acc = -1
-        for lipr_epoch in range(1, args.lipr_epochs + 1):
+    weight_path = args.l2_weight_path.replace('.pt', f"_relax-{args.relax}_eta-{args.eta}_lr-{args.lr}.pt")
+
+    best_acc = -1
+    for lipr_epoch in range(1, args.lipr_epochs + 1):
+        with torch.no_grad():
             liprex(args, model, device, train_loader, criterion)
             acc = test(args, model, device, test_loader, criterion)
-            
-            if acc > best_acc:
-                torch.save(model.state_dict(), weight_path)
+        
+        if acc > best_acc:
+            torch.save(model.state_dict(), weight_path)
 
 if __name__ == '__main__':
     main()

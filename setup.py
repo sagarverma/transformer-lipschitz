@@ -7,7 +7,7 @@ setup(
   license='MIT',
   description = 'Lipschitz training of transformers - Pytorch',
   author = 'Sagar Verma and Kavya Gupta',
-  author_email = 'lucidrains@gmail.com',
+  author_email = 'sagar@granular.ai',
   url = 'https://github.com/sagarverma/transformer-lipschitz',
   keywords = [
     'artificial intelligence',
@@ -19,7 +19,9 @@ setup(
     'torch>=1.10',
     'torchvision',
     'jupyterlab',
-    'matplotlib'
+    'matplotlib',
+    'timm==0.5.4',
+    'scipy==1.8.0'
   ],
   setup_requires=[
     'pytest-runner',

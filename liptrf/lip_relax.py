@@ -10,6 +10,7 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 
 from models.vit import ViT, L2Attention
+from models.linear_toy import LinearX
 
 
 attention_io = {}
@@ -20,14 +21,21 @@ def get_activation(name):
     return hook 
 
 def liprex(args, model, device, train_loader, criterion):
-    model.prox()
+    for layer in model.children():
+        if isinstance(layer, LinearX):
+            layer.prox()
+
     with torch.no_grad():
         for prox_epoch in range(args.prox_epochs):
             for data, target in train_loader:
                 data, target = data.to(device), target.to(device)
                 output = model(data)
-                model.proj()
-    model.update()
+                for layer in model.children():
+                    if isinstance(layer, LinearX):
+                        layer.proj()
+    for layer in model.children():
+        if isinstance(layer, LinearX):
+            layer.update()
 
 def test(args, model, device, test_loader, criterion):
     model.eval()

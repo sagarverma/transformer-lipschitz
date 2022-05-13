@@ -19,7 +19,7 @@ def trunc(shape):
 
 
 class LinearX(nn.Module):
-    def __init__(self, input, output, iter=5, lmbda=2.5):
+    def __init__(self, input, output, iter=5, lmbda=2.5, relax=1, lr=1, eta=1e-7):
         super(LinearX, self).__init__()
         self.input = input
         self.weight = nn.Parameter(torch.Tensor(output, input))
@@ -27,10 +27,17 @@ class LinearX(nn.Module):
         self.iter = iter
         self.lmbda = lmbda
         self.lc = 1.0
+        self.relax = relax
+        self.eta = eta
+        self.lr = lr
 
         nn.init.orthogonal_(self.weight)
 
-        # self.lipschitz() 
+        def hook(self, input, output):
+            self.inp = input[0].detach()
+            self.out = output.detach()
+
+        self.register_forward_hook(hook) 
 
     def forward(self, x):
         return F.linear(x, self.weight)
@@ -52,6 +59,33 @@ class LinearX(nn.Module):
         self.weight = nn.Parameter(fc)
         del fc
         torch.cuda.empty_cache()
+
+    def prox(self):
+        self.prox_weight /= self.relax
+        self.proj_weight = 2 * self.prox_weight - self.weight
+        self.proj_weight_n = self.proj_weight.clone()
+
+    def proj(self):
+        cjn = torch.mean(torch.sum(F.linear(self.proj_weight_n, self.inp) - self.out)**2 - self.eta)  
+        if cjn > 0: 
+            cj = torch.mean(torch.sum(F.linear(self.proj_weight, self.inp) - self.out)**2 - self.eta)
+            num = 2 * torch.sum(F.linear(F.linear(self.proj_weight_n, self.inp) - self.out), self.inp.T)
+            den = torch.norm(num, 'fro')**2
+            del_wn = cj * num / den 
+            pi_n =  torch.trace((self.proj_weight - self.proj_weight_n).T * del_wn)
+            mu_n = torch.norm(self.proj_weight - self.proj_weight_n, 'fro')**2
+            vu_n = torch.norm(del_wn, 'fro')**2 
+            chi_n = mu_n * vu_n - pi_n**2 
+            
+            if chi_n == 0 and pi_n >= 0:
+                self.proj_weight_n = self.proj_weight_n - del_wn
+            elif chi_n > 0 and (pi_n * vu_n) >= chi_n:
+                self.proj_weight_n = self.proj_weight - (1  + pi_n/vu_n) * del_wn
+            else:
+                self.proj_weight_n = self.proj_weight + vu_n / chi_n * (pi_n * (self.proj_weight - self.proj_weight_n) - mu_n * del_wn)
+
+    def update(self):
+        self.weight += self.lr * (self.proj_weight - self.prox_weight)
 
 
 class Net(nn.Module):

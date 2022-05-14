@@ -128,7 +128,8 @@ def main():
         args.layers = 3 
     if args.model == 'vit':
         model = ViT(image_size=28, patch_size=7, num_classes=10, channels=1,
-            dim=128, depth=args.layers, heads=8, mlp_ratio=4, attention_type=args.attention_type, lmbda=args.lmbda, device=device).cuda()
+            dim=128, depth=args.layers, heads=8, mlp_ratio=4, attention_type=args.attention_type, 
+            lmbda=args.lmbda, device=device).to(device)
     criterion = nn.CrossEntropyLoss()
     if args.opt == 'adam': 
         optimizer = optim.Adam(model.parameters(), lr=args.lr)

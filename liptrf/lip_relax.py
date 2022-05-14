@@ -100,7 +100,7 @@ def main():
                                                 num_workers=args.num_workers, shuffle=False)
 
     model = ViT(image_size=28, patch_size=7, num_classes=10, channels=1,
-                dim=128, depth=args.layers, heads=8, mlp_ratio=4, attention_type='L2', lmbda=1).cuda()
+                dim=128, depth=args.layers, heads=8, mlp_ratio=4, attention_type='L2', lmbda=1).to(device)
     layers =[]
     for layer in model.modules():
         if isinstance(layer, LinearX):

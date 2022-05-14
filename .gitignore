@@ -3,7 +3,7 @@
 *.png
 *.jpg
 *.pdf
-logs
+# logs
 data
 weights
 

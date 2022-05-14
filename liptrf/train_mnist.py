@@ -1,7 +1,8 @@
 import os 
 import argparse 
 import pickle as pkl 
-import numpy as np 
+import numpy as np
+import csv
 
 import torch 
 import torch.nn as nn 
@@ -59,13 +60,14 @@ def test(args, model, device, test_loader, criterion):
 
     test_loss /= len(test_loader.dataset)
     test_samples = len(test_loader.dataset)
+    lip = model.lipschitz().item()
 
     print(f"Test set: Average loss: {test_loss:.4f}, " +
           f"Accuracy: {correct}/{test_samples} " +
           f"({100.*correct/test_samples:.0f}%), " +
           f"Error: {(test_samples-correct)/test_samples * 100:.2f}% " +
-          f"Lipschitz {model.lipschitz().item():4f} \n")
-    return 100.*correct/test_samples
+          f"Lipschitz {lip:4f} \n")
+    return 100.*correct/test_samples, test_loss, lip
 
 
 def main():
@@ -147,7 +149,10 @@ def main():
         if args.model == 'vit':
             weight_path += f"_att-{args.attention_type}.pt"
         else:
-            weight_path += ".pt"
+            weight_path += f"_seed-{args.seed}.pt"
+
+        fout = open(weight_path.replace('.pt', '.csv').replace('weights', 'logs'), 'w')
+        w = csv.writer(fout)
 
         if not os.path.exists(args.weight_path):
             os.mkdir(args.weight_path)
@@ -156,11 +161,14 @@ def main():
         for epoch in range(1, args.epochs + 1):
             train(args, model, device, train_loader,
                   optimizer, epoch, criterion, False)
-            acc = test(args, model, device, test_loader, criterion)
+            acc, loss, lip = test(args, model, device, test_loader, criterion)
+            w.writerow([epoch, acc, loss, lip])
             scheduler.step()
             if acc > best_acc and epoch >= args.warmup:
                 best_acc = acc
                 torch.save(model.state_dict(), weight_path)
+        
+        fout.close() 
 
     if args.task == 'test':
         weight = torch.load(args.weight_path)

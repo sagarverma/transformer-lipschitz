@@ -79,9 +79,11 @@ class L2Attention(nn.Module):
         heads: int = 8,
         dropout: float = 0.,
         n_value: int = 1,
-        lmbda: float = 1.
+        lmbda: float = 1.,
+        device: int = 0
     ) -> None:
         super().__init__()
+        self.device = device
         assert dim % heads == 0, 'dim should be divisible by heads'
         self.dim = dim 
         self.n_value = n_value
@@ -109,8 +111,8 @@ class L2Attention(nn.Module):
         dots = q @ q.transpose(-2, -1)
         q_l2 = torch.pow(norm(q, dim=-1, ord=2), 2).unsqueeze(-1)
         k_l2 = torch.pow(norm(q, dim=-1, ord=2), 2).unsqueeze(-1)
-        q_l2 = torch.matmul(q_l2, torch.ones(q_l2.shape).transpose(-1, -2).cuda())
-        k_l2 = torch.matmul(torch.ones(k_l2.shape).cuda(), k_l2.transpose(-1, -2))
+        q_l2 = torch.matmul(q_l2, torch.ones(q_l2.shape).transpose(-1, -2).to(self.device))
+        k_l2 = torch.matmul(torch.ones(k_l2.shape).to(self.device), k_l2.transpose(-1, -2))
         
         attn = (-1 * (q_l2 - 2 * dots + k_l2) * self.scale).softmax(dim=-1)
         attn = self.dropout(attn)
@@ -140,7 +142,8 @@ class Attention(nn.Module):
         heads: int = 8, 
         dropout: float = 0.,
         n_value: int = 1, 
-        lmbda: float = 1.
+        lmbda: float = 1.,
+        device: int = 1
     ) -> None:
         super().__init__()
         assert dim % heads == 0, 'dim should be divisible by heads'
@@ -185,7 +188,8 @@ class Transformer(nn.Module):
         dropout: float = 0., 
         attention_type: str = "DP",
         n_value: int = 1,
-        lmbda: float = 1.
+        lmbda: float = 1.,
+        device: int = 0
     ) -> None:
         super().__init__()
         self.layers = nn.ModuleList([])
@@ -197,7 +201,7 @@ class Transformer(nn.Module):
 
         for _ in range(depth):
             self.layers.append(nn.ModuleList([
-                PreNorm(dim, attention(dim, heads = heads, dropout = dropout, n_value = n_value, lmbda = lmbda)),
+                PreNorm(dim, attention(dim, heads = heads, dropout = dropout, n_value = n_value, lmbda = lmbda, device=device)),
                 PreNorm(dim, FeedForward(dim, mlp_hidden_dim, dropout = dropout, lmbda = lmbda))
             ]))
 
@@ -238,7 +242,8 @@ class ViT(nn.Module):
         dropout: int = 0., 
         emb_dropout: int = 0.,
         attention_type: str = "DP",
-        lmbda: float = 1.
+        lmbda: float = 1.,
+        device: int = 0
     ) -> None:
         super().__init__()
         image_height, image_width = pair(image_size)
@@ -258,7 +263,7 @@ class ViT(nn.Module):
         self.dropout = nn.Dropout(emb_dropout)
 
         self.transformer = Transformer(dim, depth, heads, mlp_ratio, dropout, 
-                                       attention_type, num_patches, lmbda=lmbda)
+                                       attention_type, num_patches, lmbda=lmbda, device=device)
 
         self.pool = pool
         self.to_latent = nn.Identity()

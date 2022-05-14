@@ -128,7 +128,7 @@ def main():
         args.layers = 3 
     if args.model == 'vit':
         model = ViT(image_size=28, patch_size=7, num_classes=10, channels=1,
-            dim=128, depth=args.layers, heads=8, mlp_ratio=4, attention_type=args.attention_type, lmbda=args.lmbda).cuda()
+            dim=128, depth=args.layers, heads=8, mlp_ratio=4, attention_type=args.attention_type, lmbda=args.lmbda, device=device).cuda()
     criterion = nn.CrossEntropyLoss()
     if args.opt == 'adam': 
         optimizer = optim.Adam(model.parameters(), lr=args.lr)
@@ -143,13 +143,13 @@ def main():
 
     if args.task == 'train':
         if not args.relax:
-            weight_path = os.path.join(args.weight_path, f"{args.model}_mnist_layers-{args.layers}")
+            weight_path = os.path.join(args.weight_path, f"{args.model}_mnist_seed-{args.seed}_layers-{args.layers}")
         else:
-            weight_path = os.path.join(args.weight_path, f"{args.model}_mnist_layers-{args.layers}_relax-{args.lmbda}_warmup-{args.warmup}")
+            weight_path = os.path.join(args.weight_path, f"{args.model}_mnist_seed-{args.seed}_layers-{args.layers}_relax-{args.lmbda}_warmup-{args.warmup}")
         if args.model == 'vit':
             weight_path += f"_att-{args.attention_type}.pt"
         else:
-            weight_path += f"_seed-{args.seed}.pt"
+            weight_path += f".pt"
 
         fout = open(weight_path.replace('.pt', '.csv').replace('weights', 'logs'), 'w')
         w = csv.writer(fout)
@@ -171,7 +171,7 @@ def main():
         fout.close() 
 
     if args.task == 'test':
-        weight = torch.load(args.weight_path)
+        weight = torch.load(args.weight_path, map_location=device)
         model.load_state_dict(weight)
         test(args, model, device, test_loader, criterion)
 

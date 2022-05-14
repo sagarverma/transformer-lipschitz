@@ -1,7 +1,7 @@
 import os 
 import argparse 
 import pickle as pkl 
-import numpy as np 
+import numpy as np
 
 import torch 
 import torch.nn as nn 
@@ -33,6 +33,7 @@ def liprex(args, model, device, train_loader, criterion):
                 for layer in model.children():
                     if isinstance(layer, LinearX):
                         layer.proj()
+
     for layer in model.children():
         if isinstance(layer, LinearX):
             layer.update()

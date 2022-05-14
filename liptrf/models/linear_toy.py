@@ -48,53 +48,74 @@ class LinearX(nn.Module):
             x_p = F.linear(x, self.weight) 
             self.rand_x = nn.Parameter(F.linear(x_p, self.weight.T), requires_grad=False)
 
-        self.lc = torch.sqrt(torch.sum(self.weight @ x)**2 / (torch.sum(x**2) + 1e-9))
+        self.lc = torch.sqrt(torch.sum(self.weight @ x)**2 / (torch.sum(x**2) + 1e-9)).data.cpu()
         del x, x_p
         torch.cuda.empty_cache()
-        return self.lc.data.cpu()
+        return self.lc
 
     def apply_spec(self):
         fc = self.weight.clone().detach()
+        print (fc.max())
         fc = fc * 1 / (max(1, self.lc / self.lmbda))
+        print (fc.max(), self.lc, self.lmbda)
         self.weight = nn.Parameter(fc)
         del fc
         torch.cuda.empty_cache()
 
     def prox(self):
-        self.prox_weight = self.weight.clone() / self.relax
-        self.proj_weight = 2 * self.prox_weight - self.weight
+        self.lipschitz()
+        self.apply_spec()
+        self.prox_weight = self.weight.clone()
+        self.proj_weight = 2 * self.prox_weight - self.weight.clone()
         self.proj_weight_n = self.proj_weight.clone()
 
     def proj(self):
-        # print (self.inp.shape, self.proj_weight_n.shape)
-        cjn = torch.mean(torch.sum(F.linear(self.inp, self.proj_weight_n) - self.out)**2 - self.eta)  
+        # if torch.norm()
+        z = F.linear(self.inp, self.proj_weight_n) - self.out
+        if len(z.shape) == 3:
+            cjn = torch.mean(torch.sum(z**2, dim=[0, 1]) - self.eta)
+        else:
+            cjn = torch.mean(torch.sum(z**2, dim=0) - self.eta)
+
+        del_wn = torch.zeros(self.proj_weight_n.shape)
         if cjn > 0:
-            cj = torch.mean(torch.sum(F.linear(self.inp, self.proj_weight) - self.out)**2 - self.eta)
             if len(self.inp.shape) == 3:
                 num = 2 * torch.sum(torch.einsum("bnjd,bnci->bndc", 
-                                    (F.linear(self.inp, self.proj_weight_n) - self.out).unsqueeze(-2), 
+                                    z.unsqueeze(-2), 
                                     self.inp.unsqueeze(-1)), dim=[0, 1])
             else:
                 num = 2 * torch.sum(torch.einsum("bjd,bci->bdc", 
-                                    (F.linear(self.inp, self.proj_weight_n) - self.out).unsqueeze(-2), 
+                                    z.unsqueeze(-2), 
                                     self.inp.unsqueeze(-1)), dim=0)
+            num = num / self.out.shape[-1]
             den = torch.norm(num, 'fro')**2
-            del_wn = cj * num / den 
-            pi_n =  torch.trace((self.proj_weight - self.proj_weight_n).T @ del_wn)
-            mu_n = torch.norm(self.proj_weight - self.proj_weight_n, 'fro')**2
-            vu_n = torch.norm(del_wn, 'fro')**2 
+            del_wn = -cjn * num / den 
+        
+        L = torch.sum(del_wn**2)
+        if L > 1e-22:
+            cW = self.proj_weight - self.proj_weight_n
+
+            pi_n =  -1 * (cW.T.flatten().unsqueeze(0) @ del_wn.flatten().unsqueeze(1))
+            mu_n = torch.norm(cW, p=2)**2
+            vu_n = torch.norm(del_wn, p=2)**2 
             chi_n = mu_n * vu_n - pi_n**2 
-            
-            if chi_n == 0 and pi_n >= 0:
-                self.proj_weight_n = self.proj_weight_n - del_wn
-            elif chi_n > 0 and (pi_n * vu_n) >= chi_n:
-                self.proj_weight_n = self.proj_weight - (1  + pi_n/vu_n) * del_wn
+
+            if chi_n < 0:
+                chi_n = 0
+
+            # print (del_wn.max(), vu_n, chi_n, pi_n, mu_n)
+            if (chi_n == 0) and (pi_n >= 0):
+                self.proj_weight_n = self.proj_weight_n + del_wn
+            elif (chi_n > 0) and ((pi_n * vu_n) >= chi_n):
+                self.proj_weight_n = self.proj_weight + (1  + pi_n/vu_n) * del_wn
+            elif (chi_n > 0) and ((pi_n * vu_n) < chi_n):
+                self.proj_weight_n = self.proj_weight_n + vu_n / chi_n * (pi_n * cW - mu_n * del_wn)
             else:
-                self.proj_weight_n = self.proj_weight + vu_n / chi_n * (pi_n * (self.proj_weight - self.proj_weight_n) - mu_n * del_wn)
+                raise Exception("Error")
 
     def update(self):
+        self.proj_weight = self.proj_weight_n
         self.weight += self.lr * (self.proj_weight - self.prox_weight)
-
 
 class Net(nn.Module):
 

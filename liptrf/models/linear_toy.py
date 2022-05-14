@@ -55,22 +55,26 @@ class LinearX(nn.Module):
 
     def apply_spec(self):
         fc = self.weight.clone().detach()
-        print (fc.max())
+        # print (fc.max())
         fc = fc * 1 / (max(1, self.lc / self.lmbda))
-        print (fc.max(), self.lc, self.lmbda)
+        # print (fc.max(), self.lc, self.lmbda)
         self.weight = nn.Parameter(fc)
         del fc
         torch.cuda.empty_cache()
 
     def prox(self):
         self.lipschitz()
+        self.lmbda = self.relax
         self.apply_spec()
-        self.prox_weight = self.weight.clone()
+        self.prox_weight = self.weight.clone() #/ self.relax
         self.proj_weight = 2 * self.prox_weight - self.weight.clone()
         self.proj_weight_n = self.proj_weight.clone()
 
     def proj(self):
         # if torch.norm()
+        if torch.norm(self.proj_weight_n-self.proj_weight, 'fro') < self.eta * torch.norm(self.weight, 'fro'):
+            return 
+
         z = F.linear(self.inp, self.proj_weight_n) - self.out
         if len(z.shape) == 3:
             cjn = torch.mean(torch.sum(z**2, dim=[0, 1]) - self.eta)
@@ -115,7 +119,7 @@ class LinearX(nn.Module):
 
     def update(self):
         self.proj_weight = self.proj_weight_n
-        self.weight += self.lr * (self.proj_weight - self.prox_weight)
+        self.weight += self.lr * (self.prox_weight - self.proj_weight)
 
 class Net(nn.Module):
 

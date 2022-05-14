@@ -92,8 +92,8 @@ class L2Attention(nn.Module):
 
         self.attend = nn.Softmax(dim = -1)
 
-        self.to_qv = LinearX(dim, dim * 2, iter=2, lmbda=lmbda)
-
+        self.to_q = LinearX(dim, dim, iter=2, lmbda=lmbda)
+        self.to_v = LinearX(dim, dim, iter=2, lmbda=lmbda)
         self.to_out = LinearX(dim, dim, iter=2, lmbda=lmbda)
         self.dropout =  nn.Dropout(dropout)
          
@@ -102,9 +102,10 @@ class L2Attention(nn.Module):
         x: torch.tensor
     ) -> torch.tensor:
 
-        qv = self.to_qv(x).chunk(2, dim = -1)
-        q, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h = self.heads), qv)
-    
+        # qv = self.to_qv(x).chunk(2, dim = -1)
+        # q, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h = self.heads), qv)
+        q = rearrange(self.to_q(x), 'b n (h d) -> b h n d', h = self.heads)
+        v = rearrange(self.to_v(x), 'b n (h d) -> b h n d', h = self.heads)
         dots = q @ q.transpose(-2, -1)
         q_l2 = torch.pow(norm(q, dim=-1, ord=2), 2).unsqueeze(-1)
         k_l2 = torch.pow(norm(q, dim=-1, ord=2), 2).unsqueeze(-1)
@@ -124,7 +125,7 @@ class L2Attention(nn.Module):
         H = self.heads
         v1 = np.sqrt(N / (D / H))
         v2 = 4 * lambertw(N / np.exp(1)).real + 1
-        v3 = self.to_qv.lipschitz() * self.to_out.lipschitz()
+        v3 = torch.sqrt(self.to_q.lipschitz() + self.to_v.lipschitz()) * self.to_out.lipschitz()
         return v1 * v2 * v3
 
     def apply_spec(self):

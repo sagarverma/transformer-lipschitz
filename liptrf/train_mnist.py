@@ -77,7 +77,7 @@ def main():
     parser.add_argument('--layers', type=int, default=1)
     parser.add_argument('--relax', action='store_true')
     parser.add_argument('--lmbda', type=float, default=1.)
-    parser.add_argument('--warmup', type=int, default=10)
+    parser.add_argument('--warmup', type=int, default=0)
     parser.add_argument('--attention_type', type=str, default='L2',
                         help='L2/DP')
 
@@ -143,7 +143,7 @@ def main():
         if not args.relax:
             weight_path = os.path.join(args.weight_path, f"{args.model}_mnist_layers-{args.layers}")
         else:
-            weight_path = os.path.join(args.weight_path, f"{args.model}_mnist_layers-{args.layers}_relax-{args.lmbda}")
+            weight_path = os.path.join(args.weight_path, f"{args.model}_mnist_layers-{args.layers}_relax-{args.lmbda}_warmup-{args.warmup}")
         if args.model == 'vit':
             weight_path += f"_att-{args.attention_type}.pt"
         else:
@@ -158,7 +158,7 @@ def main():
                   optimizer, epoch, criterion, False)
             acc = test(args, model, device, test_loader, criterion)
             scheduler.step()
-            if acc > best_acc:
+            if acc > best_acc and epoch >= args.warmup:
                 best_acc = acc
                 torch.save(model.state_dict(), weight_path)
 

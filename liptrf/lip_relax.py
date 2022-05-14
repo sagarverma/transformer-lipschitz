@@ -20,23 +20,17 @@ def get_activation(name):
                               "out": output.detach()}
     return hook 
 
-def liprex(args, model, device, train_loader, criterion):
-    for layer in model.children():
-        if isinstance(layer, LinearX):
-            layer.prox()
+def liprex(args, model, layers, device, train_loader, criterion):
+    [layer.prox() for layer in layers]
 
     with torch.no_grad():
         for proj_epoch in range(args.proj_epochs):
             for data, target in train_loader:
                 data, target = data.to(device), target.to(device)
                 output = model(data)
-                for layer in model.children():
-                    if isinstance(layer, LinearX):
-                        layer.proj()
+                [layer.proj() for layer in layers]
 
-    for layer in model.children():
-        if isinstance(layer, LinearX):
-            layer.update()
+    [layer.update() for layer in layers]
 
 def test(args, model, device, test_loader, criterion):
     model.eval()
@@ -107,11 +101,13 @@ def main():
 
     model = ViT(image_size=28, patch_size=7, num_classes=10, channels=1,
                 dim=128, depth=args.layers, heads=8, mlp_ratio=4, attention_type='L2', lmbda=1).cuda()
-    for layer in model.children():
+    layers =[]
+    for layer in model.modules():
         if isinstance(layer, LinearX):
             layer.relax = args.relax
             layer.eta = args.eta 
             layer.lr = args.lr 
+            layers.append(layer)
     weight = torch.load(args.l2_weight_path)
     model.load_state_dict(weight)
     model.eval()
@@ -124,7 +120,7 @@ def main():
     best_acc = -1
     for lipr_epoch in range(1, args.lipr_epochs + 1):
         with torch.no_grad():
-            liprex(args, model, device, train_loader, criterion)
+            liprex(args, model, layers, device, train_loader, criterion)
             acc = test(args, model, device, test_loader, criterion)
         
         if acc > best_acc:

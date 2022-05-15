@@ -40,6 +40,7 @@ def train(args, dp_model, l2_model, student_l2_models, device, train_loader,
             data, target = data.to(device), target.to(device)
             output = dp_model(data)
             samples += data.shape[0]
+            del data, target, output
 
         [student_l2_optim.zero_grad() for student_l2_optim in student_l2_optims]
         for i in range(12):

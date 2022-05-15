@@ -124,12 +124,12 @@ def main():
         transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761)),
     ])
 
-    trainset = datasets.CIFAR10(
+    trainset = datasets.CIFAR100(
         root=args.data_path, train=True, download=True, transform=transform_train)
     train_loader = torch.utils.data.DataLoader(
         trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
 
-    testset = datasets.CIFAR10(
+    testset = datasets.CIFAR100(
         root=args.data_path, train=False, download=True, transform=transform_test)
     test_loader = torch.utils.data.DataLoader(
         testset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)

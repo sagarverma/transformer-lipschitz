@@ -72,7 +72,7 @@ def test(args, model, device, test_loader, criterion):
 
 def main():
     # Training settings
-    parser = argparse.ArgumentParser(description='PyTorch CIFAR10 ViT')
+    parser = argparse.ArgumentParser(description='PyTorch TinyImageNet ViT')
     parser.add_argument('--task', type=str, default='train',
                         help='train/retrain/extract/test')
 
@@ -102,9 +102,9 @@ def main():
                         help='random seed (default: 1)')
 
     parser.add_argument('--data_path', type=str, required=True,
-                        help='data path of CIFAR10')
+                        help='data path of TinyImageNet')
     parser.add_argument('--weight_path', type=str, required=True,
-                        help='weight path of CIFAR10')
+                        help='weight path of TinyImageNet')
 
     args = parser.parse_args()
 
@@ -113,36 +113,34 @@ def main():
 
     print('==> Preparing data..')
     transform_train = transforms.Compose([
-        transforms.RandomCrop(32, padding=4),
-        transforms.RandomHorizontalFlip(),
+        transforms.RandomRotation(20),
+        transforms.RandomHorizontalFlip(0.5),
         transforms.ToTensor(),
-        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+        transforms.Normalize([0.4802, 0.4481, 0.3975], [0.2302, 0.2265, 0.2262]),
     ])
 
     transform_test = transforms.Compose([
         transforms.ToTensor(),
-        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+        transforms.Normalize([0.4802, 0.4481, 0.3975], [0.2302, 0.2265, 0.2262]),
     ])
 
-    trainset = datasets.CIFAR10(
-        root=args.data_path, train=True, download=True, transform=transform_train)
+    trainset = datasets.ImageFolder(os.path.join(args.data_path, 'tiny-imagenet-200/train'), 
+                                    transform=transform_train)
     train_loader = torch.utils.data.DataLoader(
         trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
 
-    testset = datasets.CIFAR10(
-        root=args.data_path, train=False, download=True, transform=transform_test)
+    testset = datasets.ImageFolder(os.path.join(args.data_path, 'tiny-imagenet-200/val'), 
+                              transform=transform_test)
     test_loader = torch.utils.data.DataLoader(
         testset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
 
-    classes = ('plane', 'car', 'bird', 'cat', 'deer',
-            'dog', 'frog', 'horse', 'ship', 'truck')
-
-    model = ViT(image_size=32, patch_size=4, num_classes=10, channels=3,
-        dim=384, depth=args.layers, heads=8, mlp_ratio=1, attention_type=args.attention_type, 
+    model = ViT(image_size=64, patch_size=4, num_classes=200, channels=3,
+        dim=384, depth=args.layers, heads=12, mlp_ratio=1, attention_type=args.attention_type, 
         dropout=0.1, lmbda=args.lmbda, device=device).to(device)
     criterion = nn.CrossEntropyLoss()
     if args.opt == 'adam': 
-        optimizer = optim.Adam(model.parameters(), lr=args.lr)
+        optimizer = optim.Adam(model.parameters(), lr=args.lr,
+                               betas=(0.9, 0.999), weight_decay=5e-5)
     elif args.opt == 'sgd': 
         optimizer = optim.SGD(model.parameters(), lr=args.lr, 
                         momentum=0.9,
@@ -153,13 +151,14 @@ def main():
                                                         patience=3, verbose=True, 
                                                         min_lr=1e-3*1e-5, factor=0.1)
     else:
-        scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, args.epochs)
+        scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_MAX=args.epochs, 
+                                                         eta_min=1e-5)
 
     if args.task == 'train':
         if not args.relax:
-            weight_path = os.path.join(args.weight_path, f"vit_cifar10_seed-{args.seed}_layers-{args.layers}")
+            weight_path = os.path.join(args.weight_path, f"vit_tmn_seed-{args.seed}_layers-{args.layers}")
         else:
-            weight_path = os.path.join(args.weight_path, f"vit_cifar10_seed-{args.seed}_layers-{args.layers}_relax-{args.lmbda}_warmup-{args.warmup}")
+            weight_path = os.path.join(args.weight_path, f"vit_tmn_seed-{args.seed}_layers-{args.layers}_relax-{args.lmbda}_warmup-{args.warmup}")
         weight_path += f"_att-{args.attention_type}.pt"
 
         fout = open(weight_path.replace('.pt', '.csv').replace('weights', 'logs'), 'w')

@@ -1,7 +1,8 @@
 import os 
 import argparse 
 import pickle as pkl 
-import numpy as np 
+import numpy as np
+import csv
 
 import torch 
 import torch.nn as nn 
@@ -59,13 +60,14 @@ def test(args, model, device, test_loader, criterion):
 
     test_loss /= len(test_loader.dataset)
     test_samples = len(test_loader.dataset)
+    lip = model.lipschitz().item()
 
     print(f"Test set: Average loss: {test_loss:.4f}, " +
           f"Accuracy: {correct}/{test_samples} " +
           f"({100.*correct/test_samples:.0f}%), " +
           f"Error: {(test_samples-correct)/test_samples * 100:.2f}% " +
-          f"Lipschitz {model.lipschitz().item():4f} \n")
-    return 100.*correct/test_samples
+          f"Lipschitz {lip:4f} \n")
+    return 100.*correct/test_samples, test_loss, lip
 
 
 def main():
@@ -77,7 +79,7 @@ def main():
     parser.add_argument('--layers', type=int, default=1)
     parser.add_argument('--relax', action='store_true')
     parser.add_argument('--lmbda', type=float, default=1.)
-    parser.add_argument('--warmup', type=int, default=10)
+    parser.add_argument('--warmup', type=int, default=0)
     parser.add_argument('--attention_type', type=str, default='L2',
                         help='L2/DP')
 
@@ -126,7 +128,8 @@ def main():
         args.layers = 3 
     if args.model == 'vit':
         model = ViT(image_size=28, patch_size=7, num_classes=10, channels=1,
-            dim=128, depth=args.layers, heads=8, mlp_ratio=4, attention_type=args.attention_type, lmbda=args.lmbda).cuda()
+            dim=128, depth=args.layers, heads=8, mlp_ratio=4, attention_type=args.attention_type, 
+            lmbda=args.lmbda, device=device).to(device)
     criterion = nn.CrossEntropyLoss()
     if args.opt == 'adam': 
         optimizer = optim.Adam(model.parameters(), lr=args.lr)
@@ -141,13 +144,16 @@ def main():
 
     if args.task == 'train':
         if not args.relax:
-            weight_path = os.path.join(args.weight_path, f"{args.model}_mnist_layers-{args.layers}")
+            weight_path = os.path.join(args.weight_path, f"{args.model}_mnist_seed-{args.seed}_layers-{args.layers}")
         else:
-            weight_path = os.path.join(args.weight_path, f"{args.model}_mnist_layers-{args.layers}_relax-{args.lmbda}")
+            weight_path = os.path.join(args.weight_path, f"{args.model}_mnist_seed-{args.seed}_layers-{args.layers}_relax-{args.lmbda}_warmup-{args.warmup}")
         if args.model == 'vit':
             weight_path += f"_att-{args.attention_type}.pt"
         else:
-            weight_path += ".pt"
+            weight_path += f".pt"
+
+        fout = open(weight_path.replace('.pt', '.csv').replace('weights', 'logs'), 'w')
+        w = csv.writer(fout)
 
         if not os.path.exists(args.weight_path):
             os.mkdir(args.weight_path)
@@ -156,14 +162,17 @@ def main():
         for epoch in range(1, args.epochs + 1):
             train(args, model, device, train_loader,
                   optimizer, epoch, criterion, False)
-            acc = test(args, model, device, test_loader, criterion)
+            acc, loss, lip = test(args, model, device, test_loader, criterion)
+            w.writerow([epoch, acc, loss, lip])
             scheduler.step()
-            if acc > best_acc:
+            if acc > best_acc and epoch >= args.warmup:
                 best_acc = acc
                 torch.save(model.state_dict(), weight_path)
+        
+        fout.close() 
 
     if args.task == 'test':
-        weight = torch.load(args.weight_path)
+        weight = torch.load(args.weight_path, map_location=device)
         model.load_state_dict(weight)
         test(args, model, device, test_loader, criterion)
 

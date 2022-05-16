@@ -111,8 +111,8 @@ class L2Attention(nn.Module):
         dots = q @ q.transpose(-2, -1)
         q_l2 = torch.pow(norm(q, dim=-1, ord=2), 2).unsqueeze(-1)
         k_l2 = torch.pow(norm(q, dim=-1, ord=2), 2).unsqueeze(-1)
-        q_l2 = torch.matmul(q_l2, torch.ones(q_l2.shape).transpose(-1, -2).to(self.device))
-        k_l2 = torch.matmul(torch.ones(k_l2.shape).to(self.device), k_l2.transpose(-1, -2))
+        q_l2 = torch.matmul(q_l2, torch.ones(q_l2.shape).transpose(-1, -2).type_as(x))
+        k_l2 = torch.matmul(torch.ones(k_l2.shape).type_as(x), k_l2.transpose(-1, -2))
         
         attn = (-1 * (q_l2 - 2 * dots + k_l2) * self.scale).softmax(dim=-1)
         attn = self.dropout(attn)

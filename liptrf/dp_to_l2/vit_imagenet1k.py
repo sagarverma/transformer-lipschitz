@@ -29,7 +29,7 @@ def adapt(args, dp_model, l2_model, student_l2_models, device, train_loader,
     student_l2_train_loss = [0] * len(student_l2_models)
     for batch_idx, (data, target) in enumerate(train_loader):
         with torch.no_grad():
-            data, target = data.to(device), target.to(device)
+            data = data.to(device)
             output = dp_model(data)
             samples += data.shape[0]
             del data, target, output
@@ -61,7 +61,7 @@ def test(args, model, device, test_loader, criterion):
     test_samples = 0
     with torch.no_grad():
         for data, target in test_loader:
-            data, target = data.to(device), target.to(device)
+            data, target = data.to(device), target.to(device) - 1
             test_samples += data.shape[0]
             output = model(data)
             test_loss += criterion(output, target).item()  # sum up batch loss

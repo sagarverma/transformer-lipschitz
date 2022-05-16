@@ -21,7 +21,8 @@ setup(
     'jupyterlab',
     'matplotlib',
     'timm==0.5.4',
-    'scipy==1.8.0'
+    'scipy==1.8.0',
+    'webdataset'
   ],
   setup_requires=[
     'pytest-runner',

@@ -113,6 +113,7 @@ def main():
     random.seed(args.seed)
     torch.manual_seed(args.seed)
     device = torch.device(args.gpu)
+    gpus = torch.cuda.device_count()
 
     train_loader, test_loader = get_dataloaders(args)
     
@@ -127,7 +128,7 @@ def main():
     student_l2_models = []
     for i in range(12):
         dp_model.blocks[i].attn.register_forward_hook(get_activation(f'a{i}'))
-        student_l2_model = L2Attention(dim=768, heads=12).to(i % 3 + 1)
+        student_l2_model = L2Attention(dim=768, heads=12).to(i % (gpus-1) + 1)
 
         if args.opt == 'adam': 
             student_l2_optimizer = optim.Adam(student_l2_model.parameters(), lr=args.lr)

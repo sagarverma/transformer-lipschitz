@@ -71,7 +71,8 @@ class FeedForward(nn.Module):
         for layer in self.children():
             if isinstance(layer, LinearX):
                 layer.apply_spec()
-       
+
+
 class L2Attention(nn.Module):
     def __init__(
         self, 

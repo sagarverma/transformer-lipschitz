@@ -36,9 +36,9 @@ parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 parser.add_argument('--data', metavar='DIR', default='./data',
                     help='path to dataset')
 parser.add_argument('--shuffle', type=int, default=1000, help='shuffle buffer size for WebDataset')
-parser.add_argument('--trainshards', default='../ImageNet1K/train-{0000..1878}.tar', help='path/URL for ImageNet shards',
+parser.add_argument('--trainshards', default='../ImageNet1K/train/train-{0000..1878}.tar', help='path/URL for ImageNet shards',
 )
-parser.add_argument('--valshards', default='./shards/imagenet-train-{00..48}.tar', help='path/URL for ImageNet shards',
+parser.add_argument('--valshards', default='../ImageNet1K/val/val-{00..48}.tar', help='path/URL for ImageNet shards',
 )
 parser.add_argument('--trainsize', type=int, default=1281167, help='ImageNet training set size')
 parser.add_argument('--augmentation', default='full')
@@ -141,10 +141,12 @@ def main_worker(gpu, ngpus_per_node, args):
         dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
                                 world_size=args.world_size, rank=args.rank)
     # create model
+    print ("Create Model")
     model = ViT(image_size=224, patch_size=16, num_classes=1000, channels=3,
         dim=768, depth=12, heads=12, mlp_ratio=4, attention_type='L2', 
-        dropout=0.1, lmbda=args.lmbda)
-
+        dropout=0.1, lmbda=1)
+    print ("Model Created")
+    
     if args.distributed:
         # For multiprocessing distributed, DistributedDataParallel constructor
         # should always set the single device scope, otherwise,
@@ -175,6 +177,7 @@ def main_worker(gpu, ngpus_per_node, args):
             model = torch.nn.DataParallel(model).cuda()
 
     # define loss function (criterion) and optimizer
+    print ("Loss, Opt, etc")
     criterion = nn.CrossEntropyLoss().cuda(args.gpu)
 
     optimizer = torch.optim.SGD(model.parameters(), args.lr,
@@ -224,17 +227,17 @@ def main_worker(gpu, ngpus_per_node, args):
         train(train_loader, model, criterion, optimizer, epoch, args)
 
         # evaluate on validation set
-        acc1 = validate(val_loader, model, criterion, args)
+        # acc1 = validate(val_loader, model, criterion, args)
 
         # remember best acc@1 and save checkpoint
-        is_best = acc1 > best_acc1
-        best_acc1 = max(acc1, best_acc1)
+        is_best = True #acc1 > best_acc1
+        best_acc1 = 100 #max(acc1, best_acc1)
 
         if not args.multiprocessing_distributed or (args.multiprocessing_distributed
                 and args.rank % ngpus_per_node == 0):
             save_checkpoint({
                 'epoch': epoch + 1,
-                'arch': args.arch,
+                'arch': 'vit',
                 'state_dict': model.state_dict(),
                 'best_acc1': best_acc1,
                 'optimizer' : optimizer.state_dict(),
@@ -245,7 +248,7 @@ def make_train_transform(args):
 
     if args.augmentation == "full":
         return transforms.Compose(
-            [   Byte2Image()
+            [   Byte2Image(),
                 transforms.RandomResizedCrop(224),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
@@ -278,7 +281,7 @@ def make_train_loader_wds(args):
     train_transform = make_train_transform(args)
     num_batches = args.trainsize // args.batch_size
     train_dataset = (
-        wds.WebDataset(args.trainshards, length=num_batches)
+        wds.WebDataset(args.trainshards)
         .shuffle(args.shuffle)
         .decode("pil")
         .to_tuple("x.img.pil y.cls")
@@ -313,17 +316,18 @@ def make_val_loader_wds(args):
     valdir = os.path.join(args.data, "val")
     val_transform = make_val_transform(args)
     val_dataset = (
-        wds.WebDataset(args.trainshards, length=args.batch_size)
+        wds.WebDataset(args.trainshards)
         .shuffle(args.shuffle)
         .decode("pil")
         .to_tuple("x.img.pil y.cls")
         .map_tuple(val_transform, identity)
+        .batched(args.batch_size)
     )
     val_loader =  wds.WebLoader(
             val_dataset,
             batch_size=None,
             shuffle=False,
-            num_workers=args.num_workers,
+            num_workers=args.workers,
         )
     return val_loader
 
@@ -335,7 +339,7 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
     top1 = AverageMeter('Acc@1', ':6.2f')
     top5 = AverageMeter('Acc@5', ':6.2f')
     progress = ProgressMeter(
-        len(train_loader),
+        1281167,
         [batch_time, data_time, losses, top1, top5],
         prefix="Epoch: [{}]".format(epoch))
 
@@ -349,7 +353,7 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
 
         if args.gpu is not None:
             images = images.cuda(args.gpu, non_blocking=True)
-        target = target.cuda(args.gpu, non_blocking=True)
+        target = target.cuda(args.gpu, non_blocking=True) - 1
 
         # compute output
         output = model(images)
@@ -380,7 +384,7 @@ def validate(val_loader, model, criterion, args):
     top1 = AverageMeter('Acc@1', ':6.2f')
     top5 = AverageMeter('Acc@5', ':6.2f')
     progress = ProgressMeter(
-        len(val_loader),
+        50000,
         [batch_time, losses, top1, top5],
         prefix='Test: ')
 
@@ -392,7 +396,7 @@ def validate(val_loader, model, criterion, args):
         for i, (images, target) in enumerate(val_loader):
             if args.gpu is not None:
                 images = images.cuda(args.gpu, non_blocking=True)
-            target = target.cuda(args.gpu, non_blocking=True)
+            target = target.cuda(args.gpu, non_blocking=True) - 1
 
             # compute output
             output = model(images)

@@ -6,6 +6,7 @@
 # logs
 data
 weights
+*.pth.tar
 
 *__pycache__
 *.pyc

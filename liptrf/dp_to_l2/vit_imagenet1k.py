@@ -8,11 +8,22 @@ import torch
 import timm
 import torch.nn as nn 
 import torch.nn.functional as F 
-import torch.optim as optim 
+import torch.optim as optim
+import torch.distributed as dist 
 from torchvision import datasets, transforms
+from torch.nn.parallel import DistributedDataParallel as DDP 
 
 from liptrf.models.vit import L2Attention
  
+ 
+def setup(rank, world_size):
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_ROOT'] = '12355'
+
+    dist.init_process_group("nccl", rank=rank, world_size=world_size)
+
+def cleanup():
+    dist.destroy_process_group()
 
 class Byte2Image(object):
     def __call__(self, sample):
@@ -28,7 +39,7 @@ def get_activation(name):
                               "out": output.detach()}
     return hook 
 
-def train(args, dp_model, l2_model, student_l2_models, device, train_loader,
+def adapt(args, dp_model, l2_model, student_l2_models, device, train_loader,
           student_l2_optims, epoch, criterion, finetune=False):
     student_l2_models = [student_l2_model.train() for student_l2_model in student_l2_models]
     dp_model.eval()
@@ -198,7 +209,7 @@ def main():
 
         best_acc = -1
         for epoch in range(1, args.epochs + 1):
-            train(args, dp_model, l2_model, student_l2_models, device, train_loader,
+            adapt(args, dp_model, l2_model, student_l2_models, device, train_loader,
                   student_l2_optims, epoch, student_l2_criterion, False)
             acc = test(args, l2_model, device, test_loader, criterion)
             

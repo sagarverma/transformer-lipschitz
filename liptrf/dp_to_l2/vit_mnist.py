@@ -154,16 +154,6 @@ def main():
         student_l2_schedulers.append(student_l2_scheduler)
 
     criterion = nn.CrossEntropyLoss()
-    # if args.opt == 'adam': 
-    #     optimizer = optim.Adam(l2_model.parameters(), lr=args.lr)
-    # elif args.opt == 'sgd': 
-    #     optimizer = optim.SGD(l2_model.parameters(), lr=args.lr, 
-    #                     momentum=0.9,
-    #                     weight_decay=0.0) 
-    # scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,
-    #                                                  milestones=[50, 60,
-    #                                                              70, 80],
-    #                                                  gamma=0.2)
 
     if args.task == 'train':
         weight_path = os.path.join(args.weight_path, f"vit_mnist_layers-{args.layers}_att-L2_adaptedFrom_DP.pt")
@@ -183,10 +173,6 @@ def main():
             if acc > best_acc:
                 torch.save(l2_model.state_dict(), weight_path)
             
-    # if args.task == 'test':
-    #     weight = torch.load(args.weight_path)
-    #     model.load_state_dict(weight)
-    #     test(args, model, device, test_loader, criterion)
 
 if __name__ == '__main__':
     main()

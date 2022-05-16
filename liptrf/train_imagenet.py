@@ -227,11 +227,11 @@ def main_worker(gpu, ngpus_per_node, args):
         train(train_loader, model, criterion, optimizer, epoch, args)
 
         # evaluate on validation set
-        # acc1 = validate(val_loader, model, criterion, args)
+        acc1 = validate(val_loader, model, criterion, args)
 
         # remember best acc@1 and save checkpoint
-        is_best = True #acc1 > best_acc1
-        best_acc1 = 100 #max(acc1, best_acc1)
+        is_best = acc1 > best_acc1
+        best_acc1 = max(acc1, best_acc1)
 
         if not args.multiprocessing_distributed or (args.multiprocessing_distributed
                 and args.rank % ngpus_per_node == 0):
@@ -241,7 +241,7 @@ def main_worker(gpu, ngpus_per_node, args):
                 'state_dict': model.state_dict(),
                 'best_acc1': best_acc1,
                 'optimizer' : optimizer.state_dict(),
-            }, is_best)
+            }, is_best, f"../weights/vit_imagenet1k_{args.attention_type}_checkpoint.pt")
 
 def make_train_transform(args):
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
@@ -313,22 +313,37 @@ def make_train_loader_wds(args):
 
 
 def make_val_loader_wds(args):
-    valdir = os.path.join(args.data, "val")
     val_transform = make_val_transform(args)
+    num_batches = 50000 // args.batch_size
     val_dataset = (
-        wds.WebDataset(args.trainshards)
+        wds.WebDataset(args.valshards)
         .shuffle(args.shuffle)
         .decode("pil")
         .to_tuple("x.img.pil y.cls")
         .map_tuple(val_transform, identity)
-        .batched(args.batch_size)
     )
-    val_loader =  wds.WebLoader(
-            val_dataset,
-            batch_size=None,
-            shuffle=False,
-            num_workers=args.workers,
-        )
+    if args.distributed:
+        # It's good to avoid partial batches when using DistributedDataParallel.
+        val_dataset = val_dataset.batched(args.batch_size, partial=False)
+    else:
+        val_dataset = val_dataset.batched(args.batch_size)
+    # WebLoader is just the regular DataLoader with the same convenience methods
+    # that WebDataset has.
+    val_loader = wds.WebLoader(
+        val_dataset, batch_size=None, shuffle=False, num_workers=args.workers,
+    )
+    if args.distributed:
+        # With DDP, we need to make sure that all nodes get the same number of batches;
+        # we do that by reusing a little bit of data.
+        # Note that you only need to do this when retrofitting code that depends on
+        # epoch size. A better way is to iterate through the entire dataset on all nodes.
+        dataset_size = 50000
+        number_of_batches = dataset_size // (args.batch_size * args.world_size)
+        print("# batches per node for val = ", number_of_batches)
+        val_loader = val_loader.repeat(2).slice(number_of_batches)
+        # This only sets the value returned by the len() function; nothing else uses it,
+        # but some frameworks care about it.
+        val_loader.length = number_of_batches
     return val_loader
 
 
@@ -422,10 +437,10 @@ def validate(val_loader, model, criterion, args):
     return top1.avg
 
 
-def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
+def save_checkpoint(state, is_best, filename='checkpoint.pt'):
     torch.save(state, filename)
     if is_best:
-        shutil.copyfile(filename, 'model_best.pth.tar')
+        shutil.copyfile(filename, filename.replace('checkpoint.pt', 'model_best.pt'))
 
 
 class AverageMeter(object):

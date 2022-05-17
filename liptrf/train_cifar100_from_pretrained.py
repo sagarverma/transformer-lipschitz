@@ -4,6 +4,7 @@ import pickle as pkl
 import numpy as np
 import csv
 
+import timm
 import torch 
 import torch.nn as nn 
 import torch.nn.functional as F 
@@ -113,13 +114,14 @@ def main():
 
     print('==> Preparing data..')
     transform_train = transforms.Compose([
-        transforms.RandomCrop(32, padding=4),
+        transforms.Resize(224),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
         transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761)),
     ])
 
     transform_test = transforms.Compose([
+        transforms.Resize(224),
         transforms.ToTensor(),
         transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761)),
     ])
@@ -134,10 +136,11 @@ def main():
     test_loader = torch.utils.data.DataLoader(
         testset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
 
-    model = ViT(image_size=32, patch_size=4, num_classes=100, channels=3,
-        dim=192, depth=args.layers, heads=3, mlp_ratio=2, attention_type=args.attention_type, 
-        dropout=0.1, lmbda=args.lmbda, device=device).to(device)
+    model = timm.create_model('vit_tiny_patch16_224', pretrained=True)
+    model.head = nn.Linear(192, 100)
+    model = model.to(device)
     criterion = nn.CrossEntropyLoss()
+
     if args.opt == 'adam': 
         optimizer = optim.Adam(model.parameters(), lr=args.lr,
                                betas=(0.9, 0.999), weight_decay=5e-5)
@@ -155,11 +158,7 @@ def main():
                                                          eta_min=1e-5)
 
     if args.task == 'train':
-        if not args.relax:
-            weight_path = os.path.join(args.weight_path, f"vit_cifar100_seed-{args.seed}_layers-{args.layers}")
-        else:
-            weight_path = os.path.join(args.weight_path, f"vit_cifar100_seed-{args.seed}_layers-{args.layers}_relax-{args.lmbda}_warmup-{args.warmup}")
-        weight_path += f"_att-{args.attention_type}.pt"
+        weight_path = os.path.join(args.weight_path, f"vit_from_pretrained_cifar100_seed-{args.seed}_layers-{args.layers}_att-DP.pt")
 
         fout = open(weight_path.replace('.pt', '.csv').replace('weights', 'logs'), 'w')
         w = csv.writer(fout)

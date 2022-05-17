@@ -1,4 +1,5 @@
 import os 
+import random
 import argparse 
 import pickle as pkl 
 import numpy as np
@@ -103,6 +104,7 @@ def main():
 
     args = parser.parse_args()
 
+    random.seed(args.seed)
     torch.manual_seed(args.seed)
     device = torch.device(args.gpu)
 

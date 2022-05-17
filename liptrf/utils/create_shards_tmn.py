@@ -14,21 +14,25 @@ class TinyImageNet(Dataset):
 
     
     def __getitem__(self, idx):
-        return self.meta[idx], self.class_map[idx.split('/')[-2]]
+        return self.meta[idx], self.class_map[self.meta[idx].split('/')[-2]]
 
 
 fin = open('./data/tiny-imagenet-200/words.txt', 'r')
 class_map = {}
 i = 0
 for line in fin.readlines():
-    class_map[line.split('\t')] = i 
+    class_map[line.split('\t')[0]] = str(i) 
     i += 1
+
+print (len(class_map))
 
 train_samples = glob.glob('./data/tiny-imagenet-200/train/**/*.JPEG')
 val_samples = glob.glob('./data/tiny-imagenet-200/val/**/*.JPEG')
 
-train_dataset = TinyImageNet(train_samples)
-val_dataset = TinyImageNet(val_samples)
+print (train_samples[0], len(train_samples))
+
+train_dataset = TinyImageNet(train_samples, class_map)
+val_dataset = TinyImageNet(val_samples, class_map)
 
 keys=["jpeg.path", "_class"]
 

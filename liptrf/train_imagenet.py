@@ -184,6 +184,7 @@ def main_worker(gpu, ngpus_per_node, args):
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr,
                                 betas=(0.9, 0.999),
                                 weight_decay=args.weight_decay)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, 10000)
 
     # optionally resume from a checkpoint
     if args.resume:
@@ -225,7 +226,7 @@ def main_worker(gpu, ngpus_per_node, args):
         adjust_learning_rate(optimizer, epoch, args)
 
         # train for one epoch
-        train(train_loader, model, criterion, optimizer, epoch, args)
+        train(train_loader, model, criterion, optimizer, scheduler, epoch, args)
 
         # evaluate on validation set
         acc1 = validate(val_loader, model, criterion, args)
@@ -348,7 +349,7 @@ def make_val_loader_wds(args):
     return val_loader
 
 
-def train(train_loader, model, criterion, optimizer, epoch, args):
+def train(train_loader, model, criterion, optimizer, scheduler, epoch, args):
     batch_time = AverageMeter('Time', ':6.3f')
     data_time = AverageMeter('Data', ':6.3f')
     losses = AverageMeter('Loss', ':.4e')
@@ -385,6 +386,7 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+        scheduler.step(epoch + i  / 1281167)
 
         # measure elapsed time
         batch_time.update(time.time() - end)

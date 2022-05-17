@@ -181,8 +181,8 @@ def main_worker(gpu, ngpus_per_node, args):
     print ("Loss, Opt, etc")
     criterion = nn.CrossEntropyLoss().cuda(args.gpu)
 
-    optimizer = torch.optim.SGD(model.parameters(), args.lr,
-                                momentum=args.momentum,
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr,
+                                betas=(0.9, 0.999),
                                 weight_decay=args.weight_decay)
 
     # optionally resume from a checkpoint
@@ -242,7 +242,7 @@ def main_worker(gpu, ngpus_per_node, args):
                 'state_dict': model.state_dict(),
                 'best_acc1': best_acc1,
                 'optimizer' : optimizer.state_dict(),
-            }, is_best, f"../weights/vit_imagenet1k_{args.attention_type}_checkpoint.pt")
+            }, is_best, f"./weights/vit_imagenet1k_{args.attention_type}_checkpoint.pt")
 
 def make_train_transform(args):
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])

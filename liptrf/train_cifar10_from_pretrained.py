@@ -1,9 +1,11 @@
 import os 
+import random
 import argparse 
 import pickle as pkl 
 import numpy as np
 import csv
 
+import timm
 import torch 
 import torch.nn as nn 
 import torch.nn.functional as F 
@@ -30,10 +32,6 @@ def train(args, model, device, train_loader,
         correct += pred.eq(target.view_as(pred)).sum().item()
         optimizer.step()
 
-        with torch.no_grad():
-            if args.relax and epoch > args.warmup:
-                model.lipschitz()
-                model.apply_spec()
         torch.cuda.empty_cache()
 
     train_loss /= len(train_loader.dataset)
@@ -60,14 +58,12 @@ def test(args, model, device, test_loader, criterion):
 
     test_loss /= len(test_loader.dataset)
     test_samples = len(test_loader.dataset)
-    lip = model.lipschitz().item()
 
     print(f"Test set: Average loss: {test_loss:.4f}, " +
           f"Accuracy: {correct}/{test_samples} " +
           f"({100.*correct/test_samples:.0f}%), " +
-          f"Error: {(test_samples-correct)/test_samples * 100:.2f}% " +
-          f"Lipschitz {lip:4f} \n")
-    return 100.*correct/test_samples, test_loss, lip
+          f"Error: {(test_samples-correct)/test_samples * 100:.2f}%\n")
+    return 100.*correct/test_samples, test_loss
 
 
 def main():
@@ -76,12 +72,12 @@ def main():
     parser.add_argument('--task', type=str, default='train',
                         help='train/retrain/extract/test')
 
-    parser.add_argument('--layers', type=int, default=1)
-    parser.add_argument('--relax', action='store_true')
-    parser.add_argument('--lmbda', type=float, default=1.)
-    parser.add_argument('--warmup', type=int, default=0)
-    parser.add_argument('--attention_type', type=str, default='L2',
-                        help='L2/DP')
+    # parser.add_argument('--layers', type=int, default=1)
+    # parser.add_argument('--relax', action='store_true')
+    # parser.add_argument('--lmbda', type=float, default=1.)
+    # parser.add_argument('--warmup', type=int, default=0)
+    # parser.add_argument('--attention_type', type=str, default='L2',
+    #                     help='L2/DP')
 
     parser.add_argument('--batch_size', type=int, default=64, metavar='N',
                         help='input batch size for training (default: 64)')
@@ -108,36 +104,39 @@ def main():
 
     args = parser.parse_args()
 
+    random.seed(args.seed)
     torch.manual_seed(args.seed)
     device = torch.device(args.gpu)
 
     print('==> Preparing data..')
     transform_train = transforms.Compose([
-        transforms.RandomCrop(32, padding=4),
+        transforms.Resize(224),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
-        transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761)),
+        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
     ])
 
     transform_test = transforms.Compose([
+        transforms.Resize(224),
         transforms.ToTensor(),
-        transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761)),
+        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
     ])
 
-    trainset = datasets.CIFAR100(
+    trainset = datasets.CIFAR10(
         root=args.data_path, train=True, download=True, transform=transform_train)
     train_loader = torch.utils.data.DataLoader(
         trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
 
-    testset = datasets.CIFAR100(
+    testset = datasets.CIFAR10(
         root=args.data_path, train=False, download=True, transform=transform_test)
     test_loader = torch.utils.data.DataLoader(
         testset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
 
-    model = ViT(image_size=32, patch_size=4, num_classes=100, channels=3,
-        dim=192, depth=args.layers, heads=3, mlp_ratio=2, attention_type=args.attention_type, 
-        dropout=0.1, lmbda=args.lmbda, device=device).to(device)
+    model = timm.create_model('vit_tiny_patch16_224', pretrained=True)
+    model.head = nn.Linear(192, 10)
+    model = model.to(device)
     criterion = nn.CrossEntropyLoss()
+
     if args.opt == 'adam': 
         optimizer = optim.Adam(model.parameters(), lr=args.lr,
                                betas=(0.9, 0.999), weight_decay=5e-5)
@@ -155,11 +154,7 @@ def main():
                                                          eta_min=1e-5)
 
     if args.task == 'train':
-        if not args.relax:
-            weight_path = os.path.join(args.weight_path, f"vit_cifar100_seed-{args.seed}_layers-{args.layers}")
-        else:
-            weight_path = os.path.join(args.weight_path, f"vit_cifar100_seed-{args.seed}_layers-{args.layers}_relax-{args.lmbda}_warmup-{args.warmup}")
-        weight_path += f"_att-{args.attention_type}.pt"
+        weight_path = os.path.join(args.weight_path, f"vit_cifar10_from_pretrained_tiny_patch16_224_seed-{args.seed}_att-DP.pt")
 
         fout = open(weight_path.replace('.pt', '.csv').replace('weights', 'logs'), 'w')
         w = csv.writer(fout)
@@ -171,15 +166,15 @@ def main():
         for epoch in range(1, args.epochs + 1):
             train(args, model, device, train_loader,
                   optimizer, epoch, criterion, False)
-            acc, loss, lip = test(args, model, device, test_loader, criterion)
-            w.writerow([epoch, acc, loss, lip])
+            acc, loss = test(args, model, device, test_loader, criterion)
+            w.writerow([epoch, acc, loss, 'NaN'])
         
             if args.cos:
                 scheduler.step(epoch-1)
             else:
                 scheduler.step(loss)
         
-            if acc > best_acc and epoch >= args.warmup:
+            if acc > best_acc:
                 best_acc = acc
                 torch.save(model.state_dict(), weight_path)
         

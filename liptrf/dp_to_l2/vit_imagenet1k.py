@@ -1,84 +1,17 @@
 import os 
-import argparse 
-import io 
-from PIL import Image
-import webdataset as wds
+import random 
+import argparse
 
 import torch 
 import timm
 import torch.nn as nn 
-import torch.backend.cudnn as cudnn
-import torch.nn.functional as F 
 import torch.optim as optim
 import torch.distributed as dist 
-import torch.multiprocessing as mp
-from torchvision import datasets, transforms
-from torch.nn.parallel import DistributedDataParallel as DDP 
+
 
 from liptrf.models.vit import L2Attention
- 
+from liptrf.utils.imagenet_dataloader import get_dataloaders 
 
-def setup(rank, world_size):
-    os.environ['MASTER_ADDR'] = 'localhost'
-    os.environ['MASTER_ROOT'] = '12355'
-
-    dist.init_process_group("nccl", rank=rank, world_size=world_size)
-
-def cleanup():
-    dist.destroy_process_group()
-
-class Byte2Image(object):
-    def __call__(self, sample):
-        return Image.open(io.BytesIO(sample))
-
-def get_dataset(args):
-    world_size = dist.get_world_size()
-    train_transform = transforms.Compose(
-                [   Byte2Image(),
-                    transforms.RandomResizedCrop(224),
-                    transforms.RandomHorizontalFlip(),
-                    transforms.ToTensor(),
-                    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-                ]
-            )
-    val_transform = transforms.Compose(
-                [   Byte2Image(),
-                    transforms.Resize(256),
-                    transforms.CenterCrop(224),
-                    transforms.ToTensor(),
-                    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-                ]
-            )
-    
-    train_dataset = (wds.WebDataset(os.path.join(args.data_path, 'train/train-{0000..1878}.tar'))
-            .shuffle(True)
-            .decode("pil")
-            .to_tuple("x.img.pil y.cls")
-            .map_tuple(train_transform, identity)
-            .batched(args.batch_size, partial=False))
-    val_dataset = (
-            wds.WebDataset(os.path.join(args.data_path, 'val/val-{00..48}.tar'))
-            .shuffle(False)
-            .decode("pil")
-            .to_tuple("x.img.pil y.cls")
-            .map_tuple(val_transform, identity)
-            .batched(args.batch_size, partial=False)
-        )
-    train_loader =  wds.WebLoader(
-            train_dataset,
-            batch_size=None,
-            shuffle=False,
-            num_workers=args.num_workers,
-        )
-    test_loader =  wds.WebLoader(
-            val_dataset,
-            batch_size=None,
-            shuffle=False,
-            num_workers=args.num_workers,
-        )
-
-def identity(x):
-    return x
 
 attention_io = {}
 def get_activation(name):
@@ -96,7 +29,7 @@ def adapt(args, dp_model, l2_model, student_l2_models, device, train_loader,
     student_l2_train_loss = [0] * len(student_l2_models)
     for batch_idx, (data, target) in enumerate(train_loader):
         with torch.no_grad():
-            data, target = data.to(device), target.to(device)
+            data = data.to(device)
             output = dp_model(data)
             samples += data.shape[0]
             del data, target, output
@@ -128,7 +61,7 @@ def test(args, model, device, test_loader, criterion):
     test_samples = 0
     with torch.no_grad():
         for data, target in test_loader:
-            data, target = data.to(device), target.to(device)
+            data, target = data.to(device), target.to(device) - 1
             test_samples += data.shape[0]
             output = model(data)
             test_loss += criterion(output, target).item()  # sum up batch loss
@@ -144,6 +77,7 @@ def test(args, model, device, test_loader, criterion):
           f"Error: {(test_samples-correct)/test_samples * 100:.2f}% " +
           f"Lipschitz {model.lipschitz().item():4f} \n")
     return 100.*correct/test_samples
+
 
 def main():
     # Training settings
@@ -171,12 +105,17 @@ def main():
                         help='data path of MNIST')
     parser.add_argument('--weight_path', type=str, required=True, 
                         help='weight path save directory')
+    parser.add_argument('--train_samples', type=int, default=1878)
+    parser.add_argument('--val_samples', type=int, default=48)
 
     args = parser.parse_args()
 
+    random.seed(args.seed)
     torch.manual_seed(args.seed)
     device = torch.device(args.gpu)
+    gpus = torch.cuda.device_count()
 
+    train_loader, test_loader = get_dataloaders(args)
     
 
     l2_model = timm.create_model('vit_base_patch16_224', pretrained=True).to(device)
@@ -189,7 +128,7 @@ def main():
     student_l2_models = []
     for i in range(12):
         dp_model.blocks[i].attn.register_forward_hook(get_activation(f'a{i}'))
-        student_l2_model = L2Attention(dim=768, heads=12).to(device)
+        student_l2_model = L2Attention(dim=768, heads=12).to(i % (gpus-1) + 1)
 
         if args.opt == 'adam': 
             student_l2_optimizer = optim.Adam(student_l2_model.parameters(), lr=args.lr)

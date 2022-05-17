@@ -1,7 +1,7 @@
 import tarfile
 import io
 from torch.utils.data import Dataset
-from .helpers import make_encoder
+from liptrf.utils.helpers import make_encoder
 
 
 

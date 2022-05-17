@@ -10,9 +10,9 @@ import webdataset as wds
 from webdataset import ShardWriter
 from torch.utils.data import Dataset, Subset, DataLoader
 from concurrent.futures import ProcessPoolExecutor as Pool
-from stream_consumer2tar import ShardWriterCustom
-from tar_stream_ds import StreamDataset
-from helpers import collate
+from liptrf.utils.stream_consumer2tar import ShardWriterCustom
+from liptrf.utils.tar_stream_ds import StreamDataset
+from liptrf.utils.helpers import collate
 
 
 def toHHMMSS(seconds):

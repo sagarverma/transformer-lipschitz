@@ -1,7 +1,7 @@
 import glob
 
-from dataset2wds import Dataset2WebDataset 
-import torch.utils.data import Dataset 
+from liptrf.utils.dataset2wds import Dataset2WebDataset 
+from torch.utils.data import Dataset 
 
 
 class TinyImageNet(Dataset):

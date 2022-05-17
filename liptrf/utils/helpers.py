@@ -4,7 +4,7 @@ import re
 import json
 
 import numpy as np
-from . import tenbin
+from liptrf.utils import tenbin
 
 
 def imageencoder(image, format="PNG"):  # skipcq: PYL-W0622

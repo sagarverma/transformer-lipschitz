@@ -22,7 +22,8 @@ setup(
     'matplotlib',
     'timm==0.5.4',
     'scipy==1.8.0',
-    'webdataset'
+    'webdataset',
+    'tqdm'
   ],
   setup_requires=[
     'pytest-runner',

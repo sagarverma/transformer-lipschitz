@@ -1,20 +1,26 @@
 import os 
 import random
 import argparse 
-import pickle as pkl 
-import numpy as np
 import csv
-
+import io
+ 
+import numpy as np
+from PIL import Image
 import timm
 import torch 
 import torch.nn as nn 
-import torch.nn.functional as F 
 import torch.optim as optim 
-from torchvision import datasets, transforms
+from torchvision import transforms
+import webdataset as wds 
 
-from models.linear_toy import Net
-from models.vit import ViT
 
+class Byte2Image(object):
+    def __call__(self, sample):
+        img = Image.open(io.BytesIO(sample)).convert('RGB')
+        return img 
+
+def identity(x):
+    return x
 
 def train(args, model, device, train_loader,
           optimizer, epoch, criterion, finetune=False):
@@ -34,8 +40,8 @@ def train(args, model, device, train_loader,
 
         torch.cuda.empty_cache()
 
-    train_loss /= len(train_loader.dataset)
-    train_samples = len(train_loader.dataset)
+    train_loss /= 100000
+    train_samples = 100000
 
     print(f"Epoch: {epoch}, Train set: Average loss: {train_loss:.4f}, " +
           f"Accuracy: {correct}/{train_samples} " +
@@ -56,8 +62,8 @@ def test(args, model, device, test_loader, criterion):
             correct += pred.eq(target.view_as(pred)).sum().item()
             torch.cuda.empty_cache()
 
-    test_loss /= len(test_loader.dataset)
-    test_samples = len(test_loader.dataset)
+    test_loss /= 10000
+    test_samples = 10000
 
     print(f"Test set: Average loss: {test_loss:.4f}, " +
           f"Accuracy: {correct}/{test_samples} " +
@@ -110,6 +116,7 @@ def main():
 
     print('==> Preparing data..')
     transform_train = transforms.Compose([
+        Byte2Image(),
         transforms.Resize(224),
         transforms.RandomHorizontalFlip(0.5),
         transforms.ToTensor(),
@@ -117,20 +124,34 @@ def main():
     ])
 
     transform_test = transforms.Compose([
+        Byte2Image(),
         transforms.Resize(224),
         transforms.ToTensor(),
         transforms.Normalize([0.4802, 0.4481, 0.3975], [0.2302, 0.2265, 0.2262]),
     ])
 
-    trainset = datasets.ImageFolder(os.path.join(args.data_path, 'tiny-imagenet-200/train'), 
-                                    transform=transform_train)
-    train_loader = torch.utils.data.DataLoader(
-        trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
-
-    testset = datasets.ImageFolder(os.path.join(args.data_path, 'tiny-imagenet-200/val'), 
-                              transform=transform_test)
-    test_loader = torch.utils.data.DataLoader(
-        testset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
+    train_dataset = (
+        wds.WebDataset(os.path.join(args.data_path, 'TinyImageNet/train/train-{00..09}.tar'))
+        .shuffle(1000)
+        .decode("torchrgb")
+        .to_tuple("jpeg.path y.cls")
+        .map_tuple(transform_train, identity)
+        .batched(args.batch_size, partial=False)
+    )
+    train_loader = wds.WebLoader(
+        train_dataset, batch_size=None, shuffle=False, num_workers=args.num_workers,
+    )
+    test_dataset = (
+        wds.WebDataset(os.path.join(args.data_path, 'TinyImageNet/val/val-{0..0}.tar'))
+        .shuffle(1000)
+        .decode("torchrgb")
+        .to_tuple("jpeg.path y.cls")
+        .map_tuple(transform_test, identity)
+        .batched(args.batch_size, partial=False)
+    )
+    test_loader = wds.WebLoader(
+        test_dataset, batch_size=None, shuffle=False, num_workers=args.num_workers,
+    )
 
     model = timm.create_model('vit_tiny_patch16_224', pretrained=True)
     model.head = nn.Linear(192, 200)

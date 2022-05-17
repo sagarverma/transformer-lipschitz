@@ -1,3 +1,4 @@
+import os
 import glob
 
 from liptrf.utils.dataset2wds import Dataset2WebDataset 
@@ -16,25 +17,25 @@ class TinyImageNet(Dataset):
     def __getitem__(self, idx):
         return self.meta[idx], self.class_map[self.meta[idx].split('/')[-2]]
 
+train_samples = glob.glob('./data/tiny-imagenet-200/train/**/*.JPEG')
+val_samples = glob.glob('./data/tiny-imagenet-200/val/**/*.JPEG')
 
 fin = open('./data/tiny-imagenet-200/words.txt', 'r')
 class_map = {}
 i = 0
-for line in fin.readlines():
-    class_map[line.split('\t')[0]] = str(i) 
+for cls in os.listdir('./data/tiny-imagenet-200/train/'):
+    class_map[cls] = str(i) 
     i += 1
 
 print (len(class_map))
-
-train_samples = glob.glob('./data/tiny-imagenet-200/train/**/*.JPEG')
-val_samples = glob.glob('./data/tiny-imagenet-200/val/**/*.JPEG')
+print (class_map)
 
 print (train_samples[0], len(train_samples))
 
 train_dataset = TinyImageNet(train_samples, class_map)
 val_dataset = TinyImageNet(val_samples, class_map)
 
-keys=["jpeg.path", "_class"]
+keys=["jpeg.path", "y.cls"]
 
 train_exporter = Dataset2WebDataset(dataset=train_dataset, 
                                 keys=keys, 
@@ -48,5 +49,5 @@ val_exporter = Dataset2WebDataset(dataset=val_dataset,
                                 mode='val')
 
 
-train_exporter.writeShards(out_path='./data/tiny-imagenet-200/shards/train', shuffle=False, batch_size=20, num_workers=20, pool_size=1)
-val_exporter.writeShards(out_path='./data/tiny-imagenet-200/shards/val', shuffle=False, batch_size=20, num_workers=20, pool_size=1)
+train_exporter.writeShards(out_path='./data/TinyImageNet/train', shuffle=False, batch_size=20, num_workers=20, pool_size=1)
+val_exporter.writeShards(out_path='./data/TinyImageNet/val', shuffle=False, batch_size=20, num_workers=20, pool_size=1)

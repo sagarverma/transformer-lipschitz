@@ -40,7 +40,6 @@ parser.add_argument('--trainshards', default='../ImageNet1K/train/train-{0000..1
 )
 parser.add_argument('--valshards', default='../ImageNet1K/val/val-{00..48}.tar', help='path/URL for ImageNet shards',
 )
-parser.add_argument('--attention_type', type=str, default='L2')
 parser.add_argument('--trainsize', type=int, default=1281167, help='ImageNet training set size')
 parser.add_argument('--augmentation', default='full')
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
@@ -143,9 +142,7 @@ def main_worker(gpu, ngpus_per_node, args):
                                 world_size=args.world_size, rank=args.rank)
     # create model
     print ("Create Model")
-    model = ViT(image_size=224, patch_size=16, num_classes=1000, channels=3,
-        dim=192, depth=12, heads=3, mlp_ratio=4, attention_type=args.attention_type, 
-        dropout=0.1, lmbda=1)
+    model = timm.create_model('vit_tiny_patch16_224', pretrained=True)
     print ("Model Created")
     
     if args.distributed:

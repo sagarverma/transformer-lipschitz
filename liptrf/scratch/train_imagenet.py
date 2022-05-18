@@ -261,12 +261,13 @@ def make_train_transform(args):
                 transforms.RandomResizedCrop(224),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
+                normalize
             ]
         )
     elif args.augmentation == "simple":
         print("=> using simple augmentation")
         return transforms.Compose(
-            [Byte2Image(), transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(),]
+            [Byte2Image(), transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(), normalize]
         )
 
 
@@ -274,7 +275,7 @@ def make_val_transform(args):
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
     return transforms.Compose(
-        [Byte2Image(), transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(),]
+        [Byte2Image(), transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(), normalize]
     )
 
 

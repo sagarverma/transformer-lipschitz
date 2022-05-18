@@ -62,9 +62,9 @@ class LinearX(nn.Module):
     def prox(self):
         self.lipschitz()
         self.lmbda = self.relax
-        self.apply_spec()
-        self.prox_weight = self.weight.clone() #/ self.relax
-        self.proj_weight = 2 * self.prox_weight - self.weight.clone()
+        # self.apply_spec()
+        self.prox_weight = self.weight.clone().detach() / self.relax
+        self.proj_weight = 2 * self.prox_weight - self.weight.clone().detach()
         self.proj_weight_n = self.proj_weight.clone()
 
     def proj(self):
@@ -116,4 +116,4 @@ class LinearX(nn.Module):
 
     def update(self):
         self.proj_weight = self.proj_weight_n
-        self.weight += self.lr * (self.prox_weight - self.proj_weight)
+        self.weight = nn.Parameter(self.weight + self.lr * (self.proj_weight - self.prox_weight))

@@ -95,8 +95,8 @@ def main():
 
     parser.add_argument('--data_path', type=str, required=True,
                         help='data path of CIFAR100')
-    parser.add_argument('--data_path', type=str, required=False,
-                        help='data path of CIFAR100')
+    parser.add_argument('--weight_path', type=str, required=False,
+                        help='weight path of CIFAR100')
     parser.add_argument('--dp_weight_path', type=str, required=True,
                         help='weight path of ViT trained with DP attention')
 

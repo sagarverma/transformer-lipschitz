@@ -19,7 +19,7 @@ class LinearX(nn.Module):
         super(LinearX, self).__init__()
         self.input = input
         self.weight = nn.Parameter(torch.empty(output, input))
-        # self.bias = nn.Parameter(torch.empty(output))
+        self.bias = None
         self.rand_x = nn.Parameter(trunc(self.input), requires_grad=False)
         self.iter = iter
         self.lmbda = lmbda
@@ -37,7 +37,7 @@ class LinearX(nn.Module):
         self.register_forward_hook(hook) 
 
     def forward(self, x):
-        return F.linear(x, self.weight)
+        return F.linear(x, self.weight, self.bias)
 
     def lipschitz(self):
         for i in range(self.iter):

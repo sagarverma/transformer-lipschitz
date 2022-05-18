@@ -241,7 +241,7 @@ def main_worker(gpu, ngpus_per_node, args):
                 'state_dict': model.state_dict(),
                 'best_acc1': best_acc1,
                 'optimizer' : optimizer.state_dict(),
-            }, is_best, f"./weights/vit_tiny_imagenet1k_{args.attention_type}_checkpoint.pt")
+            }, is_best, f"./weights/vit_tiny_imagenet1k_checkpoint.pt")
 
 def make_train_transform(args):
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])

@@ -152,6 +152,12 @@ def main_worker(gpu, ngpus_per_node, args):
 
     for i in range(12):
         model.blocks[i].attn = L2Attention(dim=192, heads=3, dropout=0.1)
+        model.blocks[i].attn.to_q.weight = nn.Parameter(weight['blocks.0.attn.qkv.weight'][:192, :] )
+        model.blocks[i].attn.to_q.bias = nn.Parameter(weight['blocks.0.attn.qkv.bias'][:192] )
+        model.blocks[i].attn.to_v.weight = nn.Parameter(weight['blocks.0.attn.qkv.weight'][192*2:, :] )
+        model.blocks[i].attn.to_v.bias = nn.Parameter(weight['blocks.0.attn.qkv.bias'][192*2:] )
+        model.blocks[i].attn.to_out.weight = nn.Parameter(weight['blocks.0.attn.proj.weight'])
+        model.blocks[i].attn.to_out.bias = nn.Parameter(weight['blocks.0.attn.proj.bias'])
 
     print ("Model Created")
     

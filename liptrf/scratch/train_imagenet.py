@@ -6,7 +6,8 @@ import shutil
 import time
 import warnings
 import io
- 
+import json 
+
 from PIL import Image
 import timm 
 import torch
@@ -25,12 +26,20 @@ import webdataset as wds
 from liptrf.models.vit import ViT
 
 
+fin = open('../imagenet-sample-images/imagenet_class_index.json', 'r')
+class_map = json.load(fin)
+fin.close()
+
+class_map_rev = {}
+for k in class_map.keys():
+    class_map_rev[class_map[k][0]] = int(k)
+
 class Byte2Image(object):
     def __call__(self, sample):
         return Image.open(io.BytesIO(sample))
 
-def identity(x):
-    return x
+def class_mapper(x):
+    return class_map_rev[x]
 
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
@@ -283,8 +292,8 @@ def make_train_loader_wds(args):
         wds.WebDataset(args.trainshards)
         .shuffle(args.shuffle)
         .decode("pil")
-        .to_tuple("x.img.pil y.cls")
-        .map_tuple(train_transform, identity)
+        .to_tuple("x.img.pil y.class.txt")
+        .map_tuple(train_transform, class_mapper)
     )
     if args.distributed:
         # It's good to avoid partial batches when using DistributedDataParallel.
@@ -318,8 +327,8 @@ def make_val_loader_wds(args):
         wds.WebDataset(args.valshards)
         .shuffle(args.shuffle)
         .decode("pil")
-        .to_tuple("x.img.pil y.cls")
-        .map_tuple(val_transform, identity)
+        .to_tuple("x.img.pil y.class.txt")
+        .map_tuple(val_transform, class_mapper)
     )
     if args.distributed:
         # It's good to avoid partial batches when using DistributedDataParallel.

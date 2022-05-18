@@ -8,6 +8,7 @@ import warnings
 import io
  
 from PIL import Image
+import timm 
 import torch
 import torch.nn as nn
 import torch.nn.parallel

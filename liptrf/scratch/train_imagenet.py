@@ -21,7 +21,7 @@ import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import webdataset as wds
 
-from models.vit import ViT
+from liptrf.models.vit import ViT
 
 
 class Byte2Image(object):

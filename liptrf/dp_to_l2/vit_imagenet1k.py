@@ -300,7 +300,7 @@ def make_train_loader_wds(args):
         wds.WebDataset(args.trainshards)
         .shuffle(args.shuffle)
         .decode("pil")
-        .to_tuple("x.img.pil y.cls")
+        .to_tuple("x.img.pil y.class.txt")
         .map_tuple(train_transform, class_mapper)
     )
     if args.distributed:
@@ -335,7 +335,7 @@ def make_val_loader_wds(args):
         wds.WebDataset(args.valshards)
         .shuffle(args.shuffle)
         .decode("pil")
-        .to_tuple("x.img.pil y.cls")
+        .to_tuple("x.img.pil y.class.txt")
         .map_tuple(val_transform, class_mapper)
     )
     if args.distributed:

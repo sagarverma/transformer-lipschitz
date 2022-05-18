@@ -26,7 +26,7 @@ import webdataset as wds
 from liptrf.models.vit import ViT
 
 
-fin = open('../imagenet-sample-images/imagenet_class_index.json', 'r')
+fin = open('./imagenet-sample-images/imagenet_class_index.json', 'r')
 class_map = json.load(fin)
 fin.close()
 
@@ -376,7 +376,7 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch, args):
 
         if args.gpu is not None:
             images = images.cuda(args.gpu, non_blocking=True)
-        target = target.cuda(args.gpu, non_blocking=True) - 1
+        target = target.cuda(args.gpu, non_blocking=True)
 
         # compute output
         output = model(images)
@@ -420,7 +420,7 @@ def validate(val_loader, model, criterion, args):
         for i, (images, target) in enumerate(val_loader):
             if args.gpu is not None:
                 images = images.cuda(args.gpu, non_blocking=True)
-            target = target.cuda(args.gpu, non_blocking=True) - 1
+            target = target.cuda(args.gpu, non_blocking=True)
 
             # compute output
             output = model(images)

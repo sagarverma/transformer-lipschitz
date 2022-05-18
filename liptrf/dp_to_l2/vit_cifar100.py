@@ -131,6 +131,9 @@ def main():
     model.load_state_dict(weight, strict=False)
     criterion = nn.CrossEntropyLoss()
 
+    for param in model.parameters():
+        param.requires_grad = False 
+
     for i in range(args.layers):
         model.blocks[i].attn = L2Attention(dim=192, heads=3, dropout=0.1)
 

@@ -6,6 +6,7 @@ import shutil
 import time
 import warnings
 import io
+import json 
  
 from PIL import Image
 import timm
@@ -26,12 +27,20 @@ from liptrf.models.vit import L2Attention
 from liptrf.models.timm_vit import VisionTransformer as ViT
 
 
+fin = open('./imagenet-sample-images/imagenet_class_index.json', 'r')
+class_map = json.load(fin)
+fin.close()
+
+class_map_rev = {}
+for k in class_map.keys():
+    class_map_rev[class_map[k][0]] = int(k)
+
 class Byte2Image(object):
     def __call__(self, sample):
         return Image.open(io.BytesIO(sample))
 
-def identity(x):
-    return x
+def class_mapper(x):
+    return class_map_rev[x]
 
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
@@ -152,12 +161,12 @@ def main_worker(gpu, ngpus_per_node, args):
 
     for i in range(12):
         model.blocks[i].attn = L2Attention(dim=192, heads=3, dropout=0.1)
-        model.blocks[i].attn.to_q.weight = nn.Parameter(weight['blocks.0.attn.qkv.weight'][:192, :] )
-        model.blocks[i].attn.to_q.bias = nn.Parameter(weight['blocks.0.attn.qkv.bias'][:192] )
-        model.blocks[i].attn.to_v.weight = nn.Parameter(weight['blocks.0.attn.qkv.weight'][192*2:, :] )
-        model.blocks[i].attn.to_v.bias = nn.Parameter(weight['blocks.0.attn.qkv.bias'][192*2:] )
-        model.blocks[i].attn.to_out.weight = nn.Parameter(weight['blocks.0.attn.proj.weight'])
-        model.blocks[i].attn.to_out.bias = nn.Parameter(weight['blocks.0.attn.proj.bias'])
+        # model.blocks[i].attn.to_q.weight = nn.Parameter(weight['blocks.0.attn.qkv.weight'][:192, :] )
+        # model.blocks[i].attn.to_q.bias = nn.Parameter(weight['blocks.0.attn.qkv.bias'][:192] )
+        # model.blocks[i].attn.to_v.weight = nn.Parameter(weight['blocks.0.attn.qkv.weight'][192*2:, :] )
+        # model.blocks[i].attn.to_v.bias = nn.Parameter(weight['blocks.0.attn.qkv.bias'][192*2:] )
+        # model.blocks[i].attn.to_out.weight = nn.Parameter(weight['blocks.0.attn.proj.weight'])
+        # model.blocks[i].attn.to_out.bias = nn.Parameter(weight['blocks.0.attn.proj.bias'])
 
     print ("Model Created")
     
@@ -266,7 +275,7 @@ def make_train_transform(args):
     elif args.augmentation == "simple":
         print("=> using simple augmentation")
         return transforms.Compose(
-            [Byte2Image(), transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(), normalize,]
+            [Byte2Image(), transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(), normalize]
         )
 
 
@@ -274,7 +283,7 @@ def make_val_transform(args):
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
     return transforms.Compose(
-        [Byte2Image(), transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(), normalize,]
+        [Byte2Image(), transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(), normalize]
     )
 
 
@@ -293,7 +302,7 @@ def make_train_loader_wds(args):
         .shuffle(args.shuffle)
         .decode("pil")
         .to_tuple("x.img.pil y.cls")
-        .map_tuple(train_transform, identity)
+        .map_tuple(train_transform, class_mapper)
     )
     if args.distributed:
         # It's good to avoid partial batches when using DistributedDataParallel.
@@ -328,7 +337,7 @@ def make_val_loader_wds(args):
         .shuffle(args.shuffle)
         .decode("pil")
         .to_tuple("x.img.pil y.cls")
-        .map_tuple(val_transform, identity)
+        .map_tuple(val_transform, class_mapper)
     )
     if args.distributed:
         # It's good to avoid partial batches when using DistributedDataParallel.
@@ -376,7 +385,7 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch, args):
 
         if args.gpu is not None:
             images = images.cuda(args.gpu, non_blocking=True)
-        target = target.cuda(args.gpu, non_blocking=True) - 1
+        target = target.cuda(args.gpu, non_blocking=True)
 
         # compute output
         output = model(images)
@@ -420,7 +429,7 @@ def validate(val_loader, model, criterion, args):
         for i, (images, target) in enumerate(val_loader):
             if args.gpu is not None:
                 images = images.cuda(args.gpu, non_blocking=True)
-            target = target.cuda(args.gpu, non_blocking=True) - 1
+            target = target.cuda(args.gpu, non_blocking=True)
 
             # compute output
             output = model(images)

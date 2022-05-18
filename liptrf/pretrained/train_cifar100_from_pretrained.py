@@ -12,9 +12,6 @@ import torch.nn.functional as F
 import torch.optim as optim 
 from torchvision import datasets, transforms
 
-from models.linear_toy import Net
-from models.vit import ViT
-
 
 def train(args, model, device, train_loader,
           optimizer, epoch, criterion, finetune=False):

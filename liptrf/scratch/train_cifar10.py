@@ -11,6 +11,7 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 
 from liptrf.models.vit import ViT
+from liptrf.models.layers import LinearX, trunc
 
 
 def train(args, model, device, train_loader,
@@ -189,6 +190,10 @@ def main():
     if args.task == 'test':
         weight = torch.load(args.weight_path, map_location=device)
         model.load_state_dict(weight)
+        for layer in model.modules():
+            if isinstance(layer, LinearX):
+                layer.rand_x = nn.Parameter(trunc(layer.rand_x.shape))
+        model = model.to(device)
         test(args, model, device, test_loader, criterion)
 
 if __name__ == '__main__':

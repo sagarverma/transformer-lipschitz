@@ -136,6 +136,12 @@ def main():
 
     for i in range(args.layers):
         model.blocks[i].attn = L2Attention(dim=192, heads=3, dropout=0.1)
+        model.blocks[i].attn.to_q.weight = nn.Parameter(weight['blocks.0.attn.qkv.weight'][:192, :] )
+        model.blocks[i].attn.to_q.bias = nn.Parameter(weight['blocks.0.attn.qkv.bias'][:192] )
+        model.blocks[i].attn.to_v.weight = nn.Parameter(weight['blocks.0.attn.qkv.weight'][192*2:, :] )
+        model.blocks[i].attn.to_v.bias = nn.Parameter(weight['blocks.0.attn.qkv.bias'][192*2:] )
+        model.blocks[i].attn.to_out.weight = nn.Parameter(weight['blocks.0.attn.proj.weight'])
+        model.blocks[i].attn.to_out.bias = nn.Parameter(weight['blocks.0.attn.proj.bias'])
 
     model = model.to(device)
     
@@ -155,7 +161,7 @@ def main():
         scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs, 
                                                          eta_min=1e-5)
     if args.task == 'train':
-        weight_path = os.path.join(args.dp_weight_path.replace('.pt', '_L2-Adapted.pt'))
+        weight_path = os.path.join(args.dp_weight_path.replace('.pt', '_L2-Adapted_all.pt'))
         fout = open(weight_path.replace('.pt', '.csv').replace('weights', 'logs'), 'w')
         w = csv.writer(fout)
 

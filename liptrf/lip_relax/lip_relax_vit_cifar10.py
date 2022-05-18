@@ -9,11 +9,11 @@ import torch.nn.functional as F
 import torch.optim as optim 
 from torchvision import datasets, transforms
 
-from models.vit import ViT, L2Attention
-from models.linear_toy import LinearX
+from liptrf.models.timm_vit import VisionTransformer as ViT
+from liptrf.models.layers import LinearX
 
 
-def liprex(args, model, layers, device, train_loader, criterion):
+def liprex(args, model, layers, device, train_loader, criterion, optimizer, epoch):
     [layer.prox() for layer in layers]
 
     with torch.no_grad():
@@ -79,21 +79,33 @@ def main():
     torch.manual_seed(args.seed)
     device = torch.device(args.gpu)
 
-    transform=transforms.Compose([
+    print('==> Preparing data..')
+    transform_train = transforms.Compose([
+        transforms.Resize(224),
+        transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,))
-        ])
-    dataset1 = datasets.MNIST(args.data_path, train=True, download=True,
-                       transform=transform)
-    dataset2 = datasets.MNIST(args.data_path, train=False,
-                       transform=transform)
-    train_loader = torch.utils.data.DataLoader(dataset1, batch_size=args.batch_size, 
-                                                num_workers=args.num_workers, shuffle=True)
-    test_loader = torch.utils.data.DataLoader(dataset2, batch_size=args.batch_size, 
-                                                num_workers=args.num_workers, shuffle=False)
+        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+    ])
 
-    model = ViT(image_size=28, patch_size=7, num_classes=10, channels=1,
-                dim=128, depth=args.layers, heads=8, mlp_ratio=4, attention_type='L2', lmbda=1).to(device)
+    transform_test = transforms.Compose([
+        transforms.Resize(224),
+        transforms.ToTensor(),
+        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+    ])
+
+    trainset = datasets.CIFAR10(
+        root=args.data_path, train=True, download=True, transform=transform_train)
+    train_loader = torch.utils.data.DataLoader(
+        trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
+
+    testset = datasets.CIFAR10(
+        root=args.data_path, train=False, download=True, transform=transform_test)
+    test_loader = torch.utils.data.DataLoader(
+        testset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
+
+    model =  ViT(patch_size=16, embed_dim=192, depth=12, num_heads=3, lmbda=1, num_classes=10)
+    weight = torch.load(args.l2_weight_path)
+    model.load_state_dict(weight)
     layers =[]
     for layer in model.modules():
         if isinstance(layer, LinearX):
@@ -101,10 +113,14 @@ def main():
             layer.eta = args.eta 
             layer.lr = args.lr 
             layers.append(layer)
-    weight = torch.load(args.l2_weight_path)
-    model.load_state_dict(weight)
-    model.eval()
+    model = model.to(device)
+    # model.eval()
 
+    for param in model.parameters():
+        param.requires_grad = True
+
+    optimizer = optim.Adam(model.parameters(), lr=1e-3,
+                            betas=(0.9, 0.999), weight_decay=5e-5)
     criterion = nn.CrossEntropyLoss()
 
 
@@ -112,9 +128,8 @@ def main():
 
     best_acc = -1
     for lipr_epoch in range(1, args.lipr_epochs + 1):
-        with torch.no_grad():
-            liprex(args, model, layers, device, train_loader, criterion)
-            acc = test(args, model, device, test_loader, criterion)
+        liprex(args, model, layers, device, train_loader, criterion, optimizer, lipr_epoch)
+        acc = test(args, model, device, test_loader, criterion)
         
         if acc > best_acc:
             torch.save(model.state_dict(), weight_path)

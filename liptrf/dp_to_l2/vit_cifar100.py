@@ -58,11 +58,13 @@ def test(args, model, device, test_loader, criterion):
 
     test_loss /= len(test_loader.dataset)
     test_samples = len(test_loader.dataset)
+    lip = model.lipschitz().item()
 
     print(f"Test set: Average loss: {test_loss:.4f}, " +
           f"Accuracy: {correct}/{test_samples} " +
           f"({100.*correct/test_samples:.0f}%), " +
-          f"Error: {(test_samples-correct)/test_samples * 100:.2f}%\n")
+          f"Error: {(test_samples-correct)/test_samples * 100:.2f}% " +
+          f"Lipschitz {lip:4f} \n")
     return 100.*correct/test_samples, test_loss
 
 def main():
@@ -174,6 +176,11 @@ def main():
             if acc > best_acc:
                 best_acc = acc
                 torch.save(model.state_dict(), weight_path)
+
+    if args.task == 'test':
+        weight = torch.load(args.weight_path, map_location=device)
+        model.load_state_dict(weight)
+        test(args, model, device, test_loader, criterion)
             
 
 if __name__ == '__main__':

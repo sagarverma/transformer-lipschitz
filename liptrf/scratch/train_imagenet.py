@@ -24,6 +24,7 @@ import torchvision.datasets as datasets
 import webdataset as wds
 
 from liptrf.models.vit import ViT
+from liptrf.utils.evaluate import evaluate_pgd, vra
 
 
 fin = open('./imagenet-sample-images/imagenet_class_index.json', 'r')
@@ -237,6 +238,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
         # evaluate on validation set
         acc1 = validate(val_loader, model, criterion, args)
+        evaluate_pgd(val_loader, model, 36/255., 100, 36/255/4)
 
         # remember best acc@1 and save checkpoint
         is_best = acc1 > best_acc1

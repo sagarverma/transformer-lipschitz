@@ -23,7 +23,8 @@ setup(
     'timm==0.5.4',
     'scipy==1.8.0',
     'webdataset',
-    'tqdm'
+    'tqdm',
+    'advertorch'
   ],
   setup_requires=[
     'pytest-runner',

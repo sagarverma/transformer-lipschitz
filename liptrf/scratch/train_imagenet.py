@@ -238,7 +238,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
         # evaluate on validation set
         acc1 = validate(val_loader, model, criterion, args)
-        evaluate_pgd(val_loader, model, 36/255., 100, 36/255/4)
+        evaluate_pgd(val_loader, model, 0.002, 100, 0.002/4)
 
         # remember best acc@1 and save checkpoint
         is_best = acc1 > best_acc1

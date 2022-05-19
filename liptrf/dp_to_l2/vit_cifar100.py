@@ -181,7 +181,7 @@ def main():
 
     if args.task == 'test':
         weight = torch.load(args.weight_path, map_location=device)
-        model.load_state_dict(weight)
+        model.load_state_dict(weight, strict=False)
         test(args, model, device, test_loader, criterion)
             
 

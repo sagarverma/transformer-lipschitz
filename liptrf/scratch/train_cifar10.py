@@ -189,10 +189,10 @@ def main():
 
     if args.task == 'test':
         weight = torch.load(args.weight_path, map_location=device)
-        model.load_state_dict(weight)
-        for layer in model.modules():
-            if isinstance(layer, LinearX):
-                layer.rand_x = nn.Parameter(trunc(layer.rand_x.shape))
+        model.load_state_dict(weight, strict=False)
+        # for layer in model.modules():
+        #     if isinstance(layer, LinearX):
+        #         layer.rand_x = nn.Parameter(trunc(layer.rand_x.shape))
         model = model.to(device)
         test(args, model, device, test_loader, criterion)
 

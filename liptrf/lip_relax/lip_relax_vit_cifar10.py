@@ -40,12 +40,13 @@ def test(args, model, device, test_loader, criterion):
 
     test_loss /= len(test_loader.dataset)
     test_samples = len(test_loader.dataset)
+    lip = model.lipschitz().item()
 
     print(f"Test set: Average loss: {test_loss:.4f}, " +
           f"Accuracy: {correct}/{test_samples} " +
           f"({100.*correct/test_samples:.0f}%), " +
           f"Error: {(test_samples-correct)/test_samples * 100:.2f}% " +
-          f"Lipschitz {model.lipschitz().item():4f} \n")
+          f"Lipschitz {lip:4f} \n")
     return 100.*correct/test_samples
 
 def main():
@@ -105,13 +106,14 @@ def main():
 
     model =  ViT(patch_size=16, embed_dim=192, depth=12, num_heads=3, lmbda=1, num_classes=10)
     weight = torch.load(args.l2_weight_path)
-    model.load_state_dict(weight)
-    layers =[]
+    model.load_state_dict(weight, strict=False)
+    layers = []
     for layer in model.modules():
         if isinstance(layer, LinearX):
             layer.relax = args.relax
             layer.eta = args.eta 
-            layer.lr = args.lr 
+            layer.lr = args.lr
+            layer.iter = 1
             layers.append(layer)
     model = model.to(device)
     # model.eval()
@@ -127,6 +129,7 @@ def main():
     weight_path = args.l2_weight_path.replace('.pt', f"_relax-{args.relax}_eta-{args.eta}_lr-{args.lr}.pt")
 
     best_acc = -1
+    test(args, model, device, test_loader, criterion)
     for lipr_epoch in range(1, args.lipr_epochs + 1):
         liprex(args, model, layers, device, train_loader, criterion, optimizer, lipr_epoch)
         acc = test(args, model, device, test_loader, criterion)

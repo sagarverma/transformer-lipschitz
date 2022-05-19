@@ -58,11 +58,13 @@ def test(args, model, device, test_loader, criterion):
 
     test_loss /= len(test_loader.dataset)
     test_samples = len(test_loader.dataset)
+    lip = model.lipschitz().item()
 
     print(f"Test set: Average loss: {test_loss:.4f}, " +
           f"Accuracy: {correct}/{test_samples} " +
           f"({100.*correct/test_samples:.0f}%), " +
-          f"Error: {(test_samples-correct)/test_samples * 100:.2f}%\n")
+          f"Error: {(test_samples-correct)/test_samples * 100:.2f}% " +
+          f"Lipschitz {lip:4f} \n")
     return 100.*correct/test_samples, test_loss
 
 def main():
@@ -93,6 +95,8 @@ def main():
 
     parser.add_argument('--data_path', type=str, required=True,
                         help='data path of CIFAR10')
+    parser.add_argument('--weight_path', type=str, required=False,
+                        help='weight path of CIFAR100')
     parser.add_argument('--dp_weight_path', type=str, required=True,
                         help='weight path of ViT trained with DP attention')
 
@@ -134,16 +138,15 @@ def main():
     for param in model.parameters():
         param.requires_grad = False 
 
-    for i in range(args.layers):
-        model.blocks[i].attn = L2Attention(dim=192, heads=3, dropout=0.1)
-        model.blocks[i].attn.to_q.weight = nn.Parameter(weight['blocks.0.attn.qkv.weight'][:192, :] )
-        model.blocks[i].attn.to_q.bias = nn.Parameter(weight['blocks.0.attn.qkv.bias'][:192] )
-        model.blocks[i].attn.to_v.weight = nn.Parameter(weight['blocks.0.attn.qkv.weight'][192*2:, :] )
-        model.blocks[i].attn.to_v.bias = nn.Parameter(weight['blocks.0.attn.qkv.bias'][192*2:] )
-        model.blocks[i].attn.to_out.weight = nn.Parameter(weight['blocks.0.attn.proj.weight'])
-        model.blocks[i].attn.to_out.bias = nn.Parameter(weight['blocks.0.attn.proj.bias'])
+    if args.task == 'trai':
+        for i in range(args.layers):
+            model.blocks[i].attn = L2Attention(dim=192, heads=3, dropout=0.1)
 
     model = model.to(device)
+
+    for layer in model.modules():
+        if isinstance(layer, LinearX):
+            layer.iter = 1
     
     if args.opt == 'adam': 
         optimizer = optim.Adam(model.parameters(), lr=args.lr,
@@ -180,6 +183,12 @@ def main():
             if acc > best_acc:
                 best_acc = acc
                 torch.save(model.state_dict(), weight_path)
+
+    if args.task == 'test':
+        weight = torch.load(args.weight_path, map_location=device)
+        model.load_state_dict(weight, strict=False)
+        model.eval()
+        test(args, model, device, test_loader, criterion)
             
 if __name__ == '__main__':
     main()

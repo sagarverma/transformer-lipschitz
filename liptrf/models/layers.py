@@ -1,6 +1,7 @@
 from re import S
 from scipy.stats import truncnorm 
 
+import numpy as np
 import random
 import torch
 import torch.nn as nn
@@ -11,16 +12,16 @@ def l2_normalize(x):
     return x / (torch.sqrt(torch.sum(x**2.)) + 1e-9)
 
 def trunc(shape):
-    return torch.from_numpy(truncnorm.rvs(-2, 2, size=shape)).float()
+    return torch.from_numpy(truncnorm.rvs(0.5, 1, size=shape)).float()
 
 
 class LinearX(nn.Module):
     def __init__(self, input, output, iter=5, lmbda=2.5, relax=1, lr=1, eta=1e-7):
         super(LinearX, self).__init__()
         self.input = input
+        self.output = output
         self.weight = nn.Parameter(torch.empty(output, input))
         self.bias = None
-        self.rand_x = nn.Parameter(trunc(self.input), requires_grad=False)
         self.iter = iter
         self.lmbda = lmbda
         self.lc = 1.0
@@ -40,12 +41,14 @@ class LinearX(nn.Module):
         return F.linear(x, self.weight, self.bias)
 
     def lipschitz(self):
+        rand_x = trunc(self.input).cuda()
         for i in range(self.iter):
-            x = l2_normalize(self.rand_x)
+            x = l2_normalize(rand_x)
             x_p = F.linear(x, self.weight) 
-            self.rand_x = nn.Parameter(F.linear(x_p, self.weight.T), requires_grad=False)
+            rand_x = F.linear(x_p, self.weight.T)
 
-        self.lc = torch.sqrt(torch.sum(self.weight @ x)**2 / (torch.sum(x**2) + 1e-9)).data.cpu()
+        self.lc = torch.sqrt(torch.abs(torch.sum(self.weight @ x)) / (torch.abs(torch.sum(x)) + 1e-9)).data.cpu()
+        # print (self.lc)
         del x, x_p
         torch.cuda.empty_cache()
         return self.lc
@@ -62,8 +65,8 @@ class LinearX(nn.Module):
     def prox(self):
         self.lipschitz()
         self.lmbda = self.relax
-        # self.apply_spec()
-        self.prox_weight = self.weight.clone().detach() / self.relax
+        self.apply_spec()
+        self.prox_weight = self.weight.clone().detach() #/ self.relax
         self.proj_weight = 2 * self.prox_weight - self.weight.clone().detach()
         self.proj_weight_n = self.proj_weight.clone()
 

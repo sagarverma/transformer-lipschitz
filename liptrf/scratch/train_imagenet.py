@@ -152,7 +152,7 @@ def main_worker(gpu, ngpus_per_node, args):
                                 world_size=args.world_size, rank=args.rank)
     # create model
     print ("Create Model")
-    model = timm.create_model('vit_tiny_patch16_224', pretrained=True)
+    model = timm.create_model('vit_base_patch8_224', pretrained=True)
     print ("Model Created")
     
     if args.distributed:

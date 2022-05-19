@@ -10,8 +10,7 @@ import torch.nn.functional as F
 import torch.optim as optim 
 from torchvision import datasets, transforms
 
-from models.linear_toy import Net
-from models.vit import ViT
+from liptrf.models.vit import ViT
 
 
 def train(args, model, device, train_loader,
@@ -135,7 +134,7 @@ def main():
         testset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
 
     model = ViT(image_size=32, patch_size=4, num_classes=100, channels=3,
-        dim=192, depth=args.layers, heads=3, mlp_ratio=2, attention_type=args.attention_type, 
+        dim=192, depth=args.layers, heads=3, mlp_ratio=4, attention_type=args.attention_type, 
         dropout=0.1, lmbda=args.lmbda, device=device).to(device)
     criterion = nn.CrossEntropyLoss()
     if args.opt == 'adam': 
@@ -187,7 +186,7 @@ def main():
 
     if args.task == 'test':
         weight = torch.load(args.weight_path, map_location=device)
-        model.load_state_dict(weight)
+        model.load_state_dict(weight, strict=False)
         test(args, model, device, test_loader, criterion)
 
 if __name__ == '__main__':

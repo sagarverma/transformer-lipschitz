@@ -10,8 +10,8 @@ import torch.nn.functional as F
 import torch.optim as optim 
 from torchvision import datasets, transforms
 
-from models.linear_toy import Net
-from models.vit import ViT
+from liptrf.models.vit import ViT
+from liptrf.models.layers import LinearX, trunc
 
 
 def train(args, model, device, train_loader,
@@ -138,7 +138,7 @@ def main():
             'dog', 'frog', 'horse', 'ship', 'truck')
 
     model = ViT(image_size=32, patch_size=4, num_classes=10, channels=3,
-        dim=384, depth=args.layers, heads=8, mlp_ratio=1, attention_type=args.attention_type, 
+        dim=192, depth=args.layers, heads=3, mlp_ratio=4, attention_type=args.attention_type, 
         dropout=0.1, lmbda=args.lmbda, device=device).to(device)
     criterion = nn.CrossEntropyLoss()
     if args.opt == 'adam': 
@@ -153,7 +153,8 @@ def main():
                                                         patience=3, verbose=True, 
                                                         min_lr=1e-3*1e-5, factor=0.1)
     else:
-        scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, args.epochs)
+        scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs, 
+                                                         eta_min=1e-5)
 
     if args.task == 'train':
         if not args.relax:
@@ -177,6 +178,8 @@ def main():
         
             if args.cos:
                 scheduler.step(epoch-1)
+            else:
+                scheduler.step(loss)
         
             if acc > best_acc and epoch >= args.warmup:
                 best_acc = acc
@@ -186,7 +189,11 @@ def main():
 
     if args.task == 'test':
         weight = torch.load(args.weight_path, map_location=device)
-        model.load_state_dict(weight)
+        model.load_state_dict(weight, strict=False)
+        # for layer in model.modules():
+        #     if isinstance(layer, LinearX):
+        #         layer.rand_x = nn.Parameter(trunc(layer.rand_x.shape))
+        model = model.to(device)
         test(args, model, device, test_loader, criterion)
 
 if __name__ == '__main__':

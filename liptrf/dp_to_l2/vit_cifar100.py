@@ -1,9 +1,8 @@
 import os 
-import random
 import argparse 
 import pickle as pkl 
-import numpy as np
-import csv
+import numpy as np 
+import csv 
 
 import timm
 import torch 
@@ -11,6 +10,10 @@ import torch.nn as nn
 import torch.nn.functional as F 
 import torch.optim as optim 
 from torchvision import datasets, transforms
+
+from liptrf.models.vit import L2Attention
+from liptrf.models.layers import LinearX
+from liptrf.models.timm_vit import VisionTransformer as ViT
 
 
 def train(args, model, device, train_loader,
@@ -55,13 +58,14 @@ def test(args, model, device, test_loader, criterion):
 
     test_loss /= len(test_loader.dataset)
     test_samples = len(test_loader.dataset)
+    lip = model.lipschitz().item()
 
     print(f"Test set: Average loss: {test_loss:.4f}, " +
           f"Accuracy: {correct}/{test_samples} " +
           f"({100.*correct/test_samples:.0f}%), " +
-          f"Error: {(test_samples-correct)/test_samples * 100:.2f}%\n")
+          f"Error: {(test_samples-correct)/test_samples * 100:.2f}% " +
+          f"Lipschitz {lip:4f} \n")
     return 100.*correct/test_samples, test_loss
-
 
 def main():
     # Training settings
@@ -69,13 +73,8 @@ def main():
     parser.add_argument('--task', type=str, default='train',
                         help='train/retrain/extract/test')
 
-    # parser.add_argument('--layers', type=int, default=1)
-    # parser.add_argument('--relax', action='store_true')
-    # parser.add_argument('--lmbda', type=float, default=1.)
-    # parser.add_argument('--warmup', type=int, default=0)
-    # parser.add_argument('--attention_type', type=str, default='L2',
-    #                     help='L2/DP')
-
+    parser.add_argument('--layers', type=int, default=12)
+    
     parser.add_argument('--batch_size', type=int, default=64, metavar='N',
                         help='input batch size for training (default: 64)')
     parser.add_argument('--epochs', type=int, default=14, metavar='N',
@@ -96,12 +95,13 @@ def main():
 
     parser.add_argument('--data_path', type=str, required=True,
                         help='data path of CIFAR100')
-    parser.add_argument('--weight_path', type=str, required=True,
+    parser.add_argument('--weight_path', type=str, required=False,
                         help='weight path of CIFAR100')
+    parser.add_argument('--dp_weight_path', type=str, required=True,
+                        help='weight path of ViT trained with DP attention')
 
     args = parser.parse_args()
 
-    random.seed(args.seed)
     torch.manual_seed(args.seed)
     device = torch.device(args.gpu)
 
@@ -129,10 +129,19 @@ def main():
     test_loader = torch.utils.data.DataLoader(
         testset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
 
-    model = timm.create_model('vit_tiny_patch16_224', pretrained=True)
-    model.head = nn.Linear(192, 100)
-    model = model.to(device)
+    model =  ViT(patch_size=16, embed_dim=192, depth=12, num_heads=3, lmbda=1, num_classes=100)
+    args.layers = 12
+    weight = torch.load(args.dp_weight_path)
+    model.load_state_dict(weight, strict=False)
     criterion = nn.CrossEntropyLoss()
+
+    for param in model.parameters():
+        param.requires_grad = False 
+
+    for i in range(args.layers):
+        model.blocks[i].attn = L2Attention(dim=192, heads=3, dropout=0.1)
+
+    model = model.to(device)
 
     if args.opt == 'adam': 
         optimizer = optim.Adam(model.parameters(), lr=args.lr,
@@ -149,15 +158,10 @@ def main():
     else:
         scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs, 
                                                          eta_min=1e-5)
-
     if args.task == 'train':
-        weight_path = os.path.join(args.weight_path, f"vit_cifar100_from_pretrained_tiny_patch16_224_seed-{args.seed}_att-DP.pt")
-
+        weight_path = os.path.join(args.dp_weight_path.replace('.pt', '_L2-Adapted.pt'))
         fout = open(weight_path.replace('.pt', '.csv').replace('weights', 'logs'), 'w')
         w = csv.writer(fout)
-
-        if not os.path.exists(args.weight_path):
-            os.mkdir(args.weight_path)
 
         best_acc = -1
         for epoch in range(1, args.epochs + 1):
@@ -174,13 +178,12 @@ def main():
             if acc > best_acc:
                 best_acc = acc
                 torch.save(model.state_dict(), weight_path)
-        
-        fout.close() 
 
     if args.task == 'test':
         weight = torch.load(args.weight_path, map_location=device)
-        model.load_state_dict(weight)
+        model.load_state_dict(weight, strict=False)
         test(args, model, device, test_loader, criterion)
+            
 
 if __name__ == '__main__':
     main()

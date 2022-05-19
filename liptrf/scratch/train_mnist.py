@@ -10,8 +10,8 @@ import torch.nn.functional as F
 import torch.optim as optim 
 from torchvision import datasets, transforms
 
-from models.linear_toy import Net
-from models.vit import ViT
+from liptrf.models.linear_toy import Net
+from liptrf.models.vit import ViT
 
 
 def train(args, model, device, train_loader,
@@ -130,6 +130,7 @@ def main():
         model = ViT(image_size=28, patch_size=7, num_classes=10, channels=1,
             dim=128, depth=args.layers, heads=8, mlp_ratio=4, attention_type=args.attention_type, 
             lmbda=args.lmbda, device=device).to(device)
+    print (model)
     criterion = nn.CrossEntropyLoss()
     if args.opt == 'adam': 
         optimizer = optim.Adam(model.parameters(), lr=args.lr)

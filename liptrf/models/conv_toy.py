@@ -1,12 +1,9 @@
 import math
-import numpy as np 
 
-import torch
 import torch.nn as nn
 from torch.linalg import norm
 import torch.nn.functional as F 
 
-from scipy.linalg.interpolative import estimate_spectral_norm as esn
 
 
 class Flatten(nn.Module): ## =nn.Flatten()

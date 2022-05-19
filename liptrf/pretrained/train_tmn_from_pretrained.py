@@ -74,7 +74,7 @@ def test(args, model, device, test_loader, criterion):
 
 def main():
     # Training settings
-    parser = argparse.ArgumentParser(description='PyTorch CIFAR100 ViT')
+    parser = argparse.ArgumentParser(description='PyTorch TinyImageNet ViT')
     parser.add_argument('--task', type=str, default='train',
                         help='train/retrain/extract/test')
 
@@ -104,9 +104,9 @@ def main():
                         help='random seed (default: 1)')
 
     parser.add_argument('--data_path', type=str, required=True,
-                        help='data path of CIFAR100')
+                        help='data path of TinyImageNet')
     parser.add_argument('--weight_path', type=str, required=True,
-                        help='weight path of CIFAR100')
+                        help='weight path of TinyImageNet')
 
     args = parser.parse_args()
 
@@ -117,7 +117,8 @@ def main():
     print('==> Preparing data..')
     transform_train = transforms.Compose([
         Byte2Image(),
-        transforms.Resize(224),
+        # transforms.Resize(224),
+        transforms.RandomRotation(20),
         transforms.RandomHorizontalFlip(0.5),
         transforms.ToTensor(),
         transforms.Normalize([0.4802, 0.4481, 0.3975], [0.2302, 0.2265, 0.2262]),
@@ -125,7 +126,7 @@ def main():
 
     transform_test = transforms.Compose([
         Byte2Image(),
-        transforms.Resize(224),
+        # transforms.Resize(224),
         transforms.ToTensor(),
         transforms.Normalize([0.4802, 0.4481, 0.3975], [0.2302, 0.2265, 0.2262]),
     ])
@@ -153,8 +154,7 @@ def main():
         test_dataset, batch_size=None, shuffle=False, num_workers=args.num_workers,
     )
 
-    model = timm.create_model('vit_tiny_patch16_224', pretrained=True)
-    model.head = nn.Linear(192, 200)
+    model = timm.create_model('resnet18', pretrained=True, num_classes=200)
     model = model.to(device)
     criterion = nn.CrossEntropyLoss()
 

@@ -6,8 +6,10 @@ import shutil
 import time
 import warnings
 import io
- 
+import json 
+
 from PIL import Image
+import timm 
 import torch
 import torch.nn as nn
 import torch.nn.parallel
@@ -21,15 +23,24 @@ import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import webdataset as wds
 
-from models.vit import ViT
+from liptrf.models.vit import ViT
+from liptrf.utils.evaluate import evaluate_pgd, vra
 
+
+fin = open('./imagenet-sample-images/imagenet_class_index.json', 'r')
+class_map = json.load(fin)
+fin.close()
+
+class_map_rev = {}
+for k in class_map.keys():
+    class_map_rev[class_map[k][0]] = int(k)
 
 class Byte2Image(object):
     def __call__(self, sample):
         return Image.open(io.BytesIO(sample))
 
-def identity(x):
-    return x
+def class_mapper(x):
+    return class_map_rev[x]
 
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
@@ -40,7 +51,6 @@ parser.add_argument('--trainshards', default='../ImageNet1K/train/train-{0000..1
 )
 parser.add_argument('--valshards', default='../ImageNet1K/val/val-{00..48}.tar', help='path/URL for ImageNet shards',
 )
-parser.add_argument('--attention_type', type=str, default='L2')
 parser.add_argument('--trainsize', type=int, default=1281167, help='ImageNet training set size')
 parser.add_argument('--augmentation', default='full')
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
@@ -143,9 +153,7 @@ def main_worker(gpu, ngpus_per_node, args):
                                 world_size=args.world_size, rank=args.rank)
     # create model
     print ("Create Model")
-    model = ViT(image_size=224, patch_size=16, num_classes=1000, channels=3,
-        dim=192, depth=12, heads=3, mlp_ratio=4, attention_type=args.attention_type, 
-        dropout=0.1, lmbda=1)
+    model = timm.create_model('vit_tiny_patch16_224', pretrained=True)
     print ("Model Created")
     
     if args.distributed:
@@ -226,10 +234,11 @@ def main_worker(gpu, ngpus_per_node, args):
         adjust_learning_rate(optimizer, epoch, args)
 
         # train for one epoch
-        train(train_loader, model, criterion, optimizer, scheduler, epoch, args)
+        # train(train_loader, model, criterion, optimizer, scheduler, epoch, args)
 
         # evaluate on validation set
-        acc1 = validate(val_loader, model, criterion, args)
+        acc1 = 1#validate(val_loader, model, criterion, args)
+        evaluate_pgd(val_loader, model, 0.002, 100, 0.002/4)
 
         # remember best acc@1 and save checkpoint
         is_best = acc1 > best_acc1
@@ -243,7 +252,7 @@ def main_worker(gpu, ngpus_per_node, args):
                 'state_dict': model.state_dict(),
                 'best_acc1': best_acc1,
                 'optimizer' : optimizer.state_dict(),
-            }, is_best, f"./weights/vit_tiny_imagenet1k_{args.attention_type}_checkpoint.pt")
+            }, is_best, f"./weights/vit_tiny_imagenet1k_checkpoint.pt")
 
 def make_train_transform(args):
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
@@ -254,13 +263,12 @@ def make_train_transform(args):
                 transforms.RandomResizedCrop(224),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
-                normalize,
             ]
         )
     elif args.augmentation == "simple":
         print("=> using simple augmentation")
         return transforms.Compose(
-            [Byte2Image(), transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(), normalize,]
+            [Byte2Image(), transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(),]
         )
 
 
@@ -268,7 +276,7 @@ def make_val_transform(args):
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
     return transforms.Compose(
-        [Byte2Image(), transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(), normalize,]
+        [Byte2Image(), transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(),]
     )
 
 
@@ -286,8 +294,8 @@ def make_train_loader_wds(args):
         wds.WebDataset(args.trainshards)
         .shuffle(args.shuffle)
         .decode("pil")
-        .to_tuple("x.img.pil y.cls")
-        .map_tuple(train_transform, identity)
+        .to_tuple("x.img.pil y.class.txt")
+        .map_tuple(train_transform, class_mapper)
     )
     if args.distributed:
         # It's good to avoid partial batches when using DistributedDataParallel.
@@ -321,8 +329,8 @@ def make_val_loader_wds(args):
         wds.WebDataset(args.valshards)
         .shuffle(args.shuffle)
         .decode("pil")
-        .to_tuple("x.img.pil y.cls")
-        .map_tuple(val_transform, identity)
+        .to_tuple("x.img.pil y.class.txt")
+        .map_tuple(val_transform, class_mapper)
     )
     if args.distributed:
         # It's good to avoid partial batches when using DistributedDataParallel.
@@ -370,7 +378,7 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch, args):
 
         if args.gpu is not None:
             images = images.cuda(args.gpu, non_blocking=True)
-        target = target.cuda(args.gpu, non_blocking=True) - 1
+        target = target.cuda(args.gpu, non_blocking=True)
 
         # compute output
         output = model(images)
@@ -414,7 +422,7 @@ def validate(val_loader, model, criterion, args):
         for i, (images, target) in enumerate(val_loader):
             if args.gpu is not None:
                 images = images.cuda(args.gpu, non_blocking=True)
-            target = target.cuda(args.gpu, non_blocking=True) - 1
+            target = target.cuda(args.gpu, non_blocking=True)
 
             # compute output
             output = model(images)

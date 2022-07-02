@@ -115,6 +115,7 @@ class MNIST_4C3F_ReLU(nn.Module):
         x = self.fc3(x)
 
         return x 
+
 class CIFAR10_4C3F_ReLUx(nn.Module):
 
     def __init__(self):
@@ -208,10 +209,10 @@ class CIFAR10_C6F2_CLMaxMin(nn.Module):
         self.conv2 = nn.Conv2d(32, 32, 3, stride=1, padding=1)
         self.clamp2 = ClampGroupSort(torch.Size([1, 16, 32, 32]), 0.1, -0.15)
         self.conv3 = nn.Conv2d(32, 32, 4, stride=2, padding=1)
-        self.clamp4 = ClampGroupSort(torch.Size([1, 16, 16, 16]), 0.15, -0.15)
+        self.clamp3 = ClampGroupSort(torch.Size([1, 16, 16, 16]), 0.15, -0.15)
         self.conv4 = nn.Conv2d(32, 64, 3, stride=1, padding=1)
         self.clamp4 = ClampGroupSort(torch.Size([1, 32, 16, 16]), 0.15, -0.15)
-        self.conv4 = nn.Conv2d(64, 64, 3, stride=1, padding=1)
+        self.conv5 = nn.Conv2d(64, 64, 3, stride=1, padding=1)
         self.clamp5 = ClampGroupSort(torch.Size([1, 32, 16, 16]), 0.2, -0.2)
         self.conv6 = nn.Conv2d(64, 64, 4, stride=2, padding=1)
         self.clamp6 = ClampGroupSort(torch.Size([1, 32, 8, 8]), 0.3, -0.3)
@@ -220,6 +221,50 @@ class CIFAR10_C6F2_CLMaxMin(nn.Module):
         
         self.fc1 = nn.Linear(4096,512)
         self.clamp7 = ClampGroupSort(torch.Size([1, 256]), 1.2, -1.2)
+        self.fc2 = nn.Linear(512,10)
+
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+                m.weight.data.normal_(0, math.sqrt(2. / n))
+                m.bias.data.zero_()
+
+    def forward(self, x):
+        x = self.clamp1(self.conv1(x))
+        x = self.clamp2(self.conv2(x))
+        x = self.clamp3(self.conv3(x))
+        x = self.clamp4(self.conv4(x))
+        x = self.clamp5(self.conv5(x))
+        x = self.clamp6(self.conv6(x))
+        
+        x = self.flatten(x)
+
+        x = self.clamp7(self.fc1(x))
+        x = self.fc2(x)
+
+        return x 
+
+class CIFAR10_C6F2_ReLU(nn.Module):
+
+    def __init__(self, init=2.0):
+        super(CIFAR10_C6F2_ReLU, self).__init__()
+        self.conv1 = nn.Conv2d(3, 32, 3, stride=1, padding=1)
+        self.relu1 = nn.ReLU()
+        self.conv2 = nn.Conv2d(32, 32, 3, stride=1, padding=1)
+        self.relu2 = nn.ReLU()
+        self.conv3 = nn.Conv2d(32, 32, 4, stride=2, padding=1)
+        self.relu3 = nn.ReLU()
+        self.conv4 = nn.Conv2d(32, 64, 3, stride=1, padding=1)
+        self.relu4 = nn.ReLU()
+        self.conv5 = nn.Conv2d(64, 64, 3, stride=1, padding=1)
+        self.relu5 = nn.ReLU()
+        self.conv6 = nn.Conv2d(64, 64, 4, stride=2, padding=1)
+        self.relu6 = nn.ReLU()
+        
+        self.flatten = Flatten()
+        
+        self.fc1 = nn.Linear(4096,512)
+        self.relu7 = nn.ReLU()
         self.fc2 = nn.Linear(512,10)
 
         for m in self.modules():
@@ -243,12 +288,142 @@ class CIFAR10_C6F2_CLMaxMin(nn.Module):
 
         return x 
 
-# class CIFAR10_C6F2_ReLU(nn.Module):
-#     # cifar10 standard relu
+class TinyImageNet_8C2F_ReLUx(nn.Module):
 
-# class TinyImageNet_8C2F_ReLUx(nn.Module):
+    def __init__(self, init=1.0):
+        super(TinyImageNet_8C2F_ReLUx, self).__init__()
+        self.conv1 = nn.Conv2d(3, 64, 3, stride=1, padding=1)
+        self.relu1 = ReLU_x(torch.Size([1, 64, 64, 64]), init)
+        self.conv2 = nn.Conv2d(64, 64, 3, stride=1, padding=1)
+        self.relu2 = ReLU_x(torch.Size([1, 64, 64, 64]), init)
+        self.conv3 = nn.Conv2d(64, 64, 4, stride=2)
+        self.relu3 = ReLU_x(torch.Size([1, 64, 31, 31]), init)
+        self.conv4 = nn.Conv2d(64, 128, 3, stride=1, padding=1)
+        self.relu4 = ReLU_x(torch.Size([1, 128, 31, 31]), init)
+        self.conv5 = nn.Conv2d(128, 128, 3, stride=1, padding=1)
+        self.relu5 = ReLU_x(torch.Size([1, 128, 31, 31]), init)
+        self.conv6 = nn.Conv2d(128, 128, 4, stride=2)
+        self.relu6 = ReLU_x(torch.Size([1, 128, 14, 14]), init)
+        self.conv7 = nn.Conv2d(128, 256, 3, stride=1, padding=1)
+        self.relu7 = ReLU_x(torch.Size([1, 256, 14, 14]), init)
+        self.conv8 = nn.Conv2d(256, 256, 4, stride=2)
+        self.relu8 = ReLU_x(torch.Size([1, 256, 6, 6]), init)
+        
+        self.flatten = Flatten()
+        
+        self.fc1 = nn.Linear(9216, 256)
+        self.relu9 = ReLU_x(torch.Size([1, 256]), init)
+        self.fc2 = nn.Linear(256,200)
 
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+                m.weight.data.normal_(0, math.sqrt(2. / n))
+                m.bias.data.zero_()
+
+    def forward(self, x):
+        x = self.relu1(self.conv1(x))
+        x = self.relu2(self.conv2(x))
+        x = self.relu3(self.conv3(x))
+        x = self.relu4(self.conv4(x))
+        x = self.relu5(self.conv5(x))
+        x = self.relu6(self.conv6(x))
+        x = self.relu7(self.conv7(x))
+        x = self.relu8(self.conv8(x))
+        
+        x = self.flatten(x)
+
+        x = self.relu9(self.fc1(x))
+        x = self.fc2(x)
+
+        return x 
+
+class TinyImageNet_8C2F_CLMaxMin(nn.Module):
+
+    def __init__(self, init=1.0):
+        super(TinyImageNet_8C2F_CLMaxMin, self).__init__()
+        self.conv1 = nn.Conv2d(3, 64, 3, stride=1, padding=1)
+        self.clamp1 = ClampGroupSort(torch.Size([1, 32, 64, 64]), 0.4*2, -0.4*2)
+        self.conv2 = nn.Conv2d(64, 64, 3, stride=1, padding=1)
+        self.clamp2 = ClampGroupSort(torch.Size([1, 32, 64, 64]), 0.5*2, -0.5*2)
+        self.conv3 = nn.Conv2d(64, 64, 4, stride=2)
+        self.clamp3 = ClampGroupSort(torch.Size([1, 32, 31, 31]), 0.7*2, -0.7*2)
+        self.conv4 = nn.Conv2d(64, 128, 3, stride=1, padding=1)
+        self.clamp4 = ClampGroupSort(torch.Size([1, 64, 31, 31]), 0.7*2, -0.7*2)
+        self.conv5 = nn.Conv2d(128, 128, 3, stride=1, padding=1)
+        self.clamp5 = ClampGroupSort(torch.Size([1, 64, 31, 31]), 0.7*2, -0.7*2)
+        self.conv6 = nn.Conv2d(128, 128, 4, stride=2)
+        self.clamp6 = ClampGroupSort(torch.Size([1, 64, 14, 14]), 0.8*2, -0.8*2)
+        self.conv7 = nn.Conv2d(128, 256, 3, stride=1, padding=1)
+        self.clamp7 = ClampGroupSort(torch.Size([1, 128, 14, 14]), 1.0*2, -1.0*2)
+        self.conv8 = nn.Conv2d(256, 256, 4, stride=2)
+        self.clamp8 = ClampGroupSort(torch.Size([1, 128, 6, 6]), 1.5*2, -1.5*2)
+        
+        self.flatten = Flatten()
+        
+        self.fc1 = nn.Linear(9216, 256)
+        self.clamp9 = ClampGroupSort(torch.Size([1, 128]), 0.8*2, -0.8*2)
+        self.fc2 = nn.Linear(256,200)
+
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+                m.weight.data.normal_(0, math.sqrt(2. / n))
+                m.bias.data.zero_()
+
+    def forward(self, x):
+        x = self.clamp1(self.conv1(x))
+        x = self.clamp2(self.conv2(x))
+        x = self.clamp3(self.conv3(x))
+        x = self.clamp4(self.conv4(x))
+        x = self.clamp5(self.conv5(x))
+        x = self.clamp6(self.conv6(x))
+        x = self.clamp7(self.conv7(x))
+        x = self.clamp8(self.conv8(x))
+        
+        x = self.flatten(x)
+
+        x = self.clamp9(self.fc1(x))
+        x = self.fc2(x)
+
+        return x 
 
 # model = MNIST_4C3F_ReLUx()
 # inp = torch.randn(2, 1, 28, 28)
-# print (model(inp).shape)
+# out = model(inp)
+# print ("MNIST_4C3F_ReLUx", sum(p.numel() for p in model.parameters()))
+
+# model = MNIST_4C3F_ReLU()
+# inp = torch.randn(2, 1, 28, 28)
+# out = model(inp)
+# print ("MNIST_4C3F_ReLU", sum(p.numel() for p in model.parameters()))
+
+# model = CIFAR10_4C3F_ReLUx()
+# inp = torch.randn(2, 3, 32, 32)
+# out = model(inp)
+# print ("CIFAR10_4C3F_ReLUx", sum(p.numel() for p in model.parameters()))
+
+# model = CIFAR10_C6F2_ReLUx()
+# inp = torch.randn(2, 3, 32, 32)
+# out = model(inp)
+# print ("CIFAR10_C6F2_ReLUx", sum(p.numel() for p in model.parameters()))
+
+# model = CIFAR10_C6F2_CLMaxMin()
+# inp = torch.randn(2, 3, 32, 32)
+# out = model(inp)
+# print ("CIFAR10_C6F2_CLMaxMin", sum(p.numel() for p in model.parameters()))
+
+# model = CIFAR10_C6F2_ReLU()
+# inp = torch.randn(2, 3, 32, 32)
+# out = model(inp)
+# print ("CIFAR10_C6F2_ReLU", sum(p.numel() for p in model.parameters()))
+
+# model = TinyImageNet_8C2F_ReLUx()
+# inp = torch.randn(2, 3, 64, 64)
+# out = model(inp)
+# print ("TinyImageNet_8C2F_ReLUx", sum(p.numel() for p in model.parameters()))
+
+# model = TinyImageNet_8C2F_CLMaxMin()
+# inp = torch.randn(2, 3, 64, 64)
+# out = model(inp)
+# print ("TinyImageNet_8C2F_CLMaxMin", sum(p.numel() for p in model.parameters()))

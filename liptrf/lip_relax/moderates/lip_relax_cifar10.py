@@ -90,7 +90,7 @@ def test(args, model, device, test_loader, criterion):
 def process_layers(layers, model, train_loader, test_loader, 
                     criterion, optimizer, args, device):
 
-    amount = 0.9
+    amount = 0.95
     for lipr_epoch in range(args.lipr_epochs):
         for layer_lip, layer in layers:
             # if layer_lip >= 7**(1/len(layers)):
@@ -111,8 +111,8 @@ def process_layers(layers, model, train_loader, test_loader,
             if model.lipschitz() <= 4:
                 break
         
-        amount -= 0.2
-        
+        # amount -= 0.2
+
         if model.lipschitz() <= 4:
             break
     

@@ -1,4 +1,4 @@
-# TransformerLipschitz
+# CertViT
 
 ## Prerequisites & Installation 
 

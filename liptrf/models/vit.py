@@ -95,9 +95,9 @@ class L2Attention(nn.Module):
 
         self.attend = nn.Softmax(dim = -1)
 
-        self.to_q = LinearX(dim, dim, iter=2, lmbda=lmbda)
-        self.to_v = LinearX(dim, dim, iter=2, lmbda=lmbda)
-        self.to_out = LinearX(dim, dim, iter=2, lmbda=lmbda)
+        self.to_q = LinearX(dim, dim, iter=5, lmbda=lmbda)
+        self.to_v = LinearX(dim, dim, iter=5, lmbda=lmbda)
+        self.to_out = LinearX(dim, dim, iter=5, lmbda=lmbda)
         self.dropout =  nn.Dropout(dropout)
          
     def forward(
@@ -105,8 +105,6 @@ class L2Attention(nn.Module):
         x: torch.tensor
     ) -> torch.tensor:
 
-        # qv = self.to_qv(x).chunk(2, dim = -1)
-        # q, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h = self.heads), qv)
         q = rearrange(self.to_q(x), 'b n (h d) -> b h n d', h = self.heads)
         v = rearrange(self.to_v(x), 'b n (h d) -> b h n d', h = self.heads)
         dots = q @ q.transpose(-2, -1)

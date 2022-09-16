@@ -1,8 +1,5 @@
-from re import S
 from scipy.stats import truncnorm 
 
-import numpy as np
-import random
 import torch
 import torch.nn as nn
 import torch.nn.functional as F 
@@ -48,16 +45,13 @@ class LinearX(nn.Module):
             rand_x = F.linear(x_p, self.weight.T)
 
         self.lc = torch.sqrt(torch.abs(torch.sum(self.weight @ x)) / (torch.abs(torch.sum(x)) + 1e-9)).data.cpu()
-        # print (self.lc)
         del x, x_p
         torch.cuda.empty_cache()
         return self.lc
 
     def apply_spec(self):
         fc = self.weight.clone().detach()
-        # print (fc.max())
         fc = fc * 1 / (max(1, self.lc / self.lmbda))
-        # print (fc.max(), self.lc, self.lmbda)
         self.weight = nn.Parameter(fc)
         del fc
         torch.cuda.empty_cache()
@@ -65,13 +59,11 @@ class LinearX(nn.Module):
     def prox(self):
         self.lipschitz()
         self.lmbda = self.relax
-        self.apply_spec()
-        self.prox_weight = self.weight.clone().detach() #/ self.relax
+        self.prox_weight = self.weight.clone().detach() / self.relax
         self.proj_weight = 2 * self.prox_weight - self.weight.clone().detach()
         self.proj_weight_n = self.proj_weight.clone()
 
     def proj(self):
-        # if torch.norm()
         if torch.norm(self.proj_weight_n-self.proj_weight, 'fro') < self.eta * torch.norm(self.weight, 'fro'):
             return 
 

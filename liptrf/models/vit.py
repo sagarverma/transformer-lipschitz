@@ -43,10 +43,10 @@ class FeedForward(nn.Module):
         lmbda: float = 1.
     ) -> None:
         super().__init__()
-        self.fc1 = LinearX(dim, hidden_dim, iter=2, lmbda=lmbda)
+        self.fc1 = LinearX(dim, hidden_dim, power_iter=2, lmbda=lmbda)
         self.gelu = nn.GELU()
         self.dropout = nn.Dropout(dropout)
-        self.fc2 = LinearX(hidden_dim, dim, iter=2, lmbda=lmbda)
+        self.fc2 = LinearX(hidden_dim, dim, power_iter=2, lmbda=lmbda)
         
      
     def forward(
@@ -95,9 +95,9 @@ class L2Attention(nn.Module):
 
         self.attend = nn.Softmax(dim = -1)
 
-        self.to_q = LinearX(dim, dim, iter=5, lmbda=lmbda)
-        self.to_v = LinearX(dim, dim, iter=5, lmbda=lmbda)
-        self.to_out = LinearX(dim, dim, iter=5, lmbda=lmbda)
+        self.to_q = LinearX(dim, dim, power_iter=5, lmbda=lmbda)
+        self.to_v = LinearX(dim, dim, power_iter=5, lmbda=lmbda)
+        self.to_out = LinearX(dim, dim, power_iter=5, lmbda=lmbda)
         self.dropout =  nn.Dropout(dropout)
          
     def forward(
@@ -153,9 +153,9 @@ class Attention(nn.Module):
 
         self.attend = nn.Softmax(dim = -1)
 
-        self.to_qkv = LinearX(dim, dim * 3, iter=2, lmbda=lmbda)
+        self.to_qkv = LinearX(dim, dim * 3, power_iter=2, lmbda=lmbda)
 
-        self.to_out = LinearX(dim, dim, iter=2, lmbda=lmbda)
+        self.to_out = LinearX(dim, dim, power_iter=2, lmbda=lmbda)
         self.dropout =  nn.Dropout(dropout)
 
     def forward(
@@ -255,7 +255,7 @@ class ViT(nn.Module):
         assert pool in {'cls', 'mean'}, 'pool type must be either cls (cls token) or mean (mean pooling)'
 
         self.rearrange_patch = Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1 = patch_height, p2 = patch_width)
-        self.to_patch_embedding = LinearX(patch_dim, dim, iter=2, lmbda=lmbda)
+        self.to_patch_embedding = LinearX(patch_dim, dim, power_iter=2, lmbda=lmbda)
 
         self.pos_embedding = nn.Parameter(torch.randn(1, num_patches + 1, dim))
         self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
@@ -268,7 +268,7 @@ class ViT(nn.Module):
         self.to_latent = nn.Identity()
 
         self.mlp_ln = nn.LayerNorm(dim)
-        self.mlp_head = LinearX(dim, num_classes, iter=2, lmbda=lmbda)
+        self.mlp_head = LinearX(dim, num_classes, power_iter=2, lmbda=lmbda)
 
     def forward(
         self, 

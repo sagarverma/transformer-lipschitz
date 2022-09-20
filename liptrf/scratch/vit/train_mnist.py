@@ -131,6 +131,7 @@ def main():
             dim=128, depth=args.layers, heads=8, mlp_ratio=4, attention_type=args.attention_type, 
             lmbda=args.lmbda, device=device).to(device)
     print (model)
+    print (sum(p.numel() for p in model.parameters()))
     criterion = nn.CrossEntropyLoss()
     if args.opt == 'adam': 
         optimizer = optim.Adam(model.parameters(), lr=args.lr)

@@ -136,6 +136,8 @@ def main():
     model = ViT(image_size=32, patch_size=4, num_classes=100, channels=3,
         dim=192, depth=args.layers, heads=3, mlp_ratio=4, attention_type=args.attention_type, 
         dropout=0.1, lmbda=args.lmbda, device=device).to(device)
+
+    print (sum(p.numel() for p in model.parameters()))
     criterion = nn.CrossEntropyLoss()
     if args.opt == 'adam': 
         optimizer = optim.Adam(model.parameters(), lr=args.lr,

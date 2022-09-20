@@ -1,19 +1,16 @@
 import os 
 import argparse 
 import pickle as pkl 
-import numpy as np 
-import csv 
+import numpy as np
+import csv
 
-import timm
 import torch 
 import torch.nn as nn 
 import torch.nn.functional as F 
 import torch.optim as optim 
 from torchvision import datasets, transforms
 
-from liptrf.models.vit import L2Attention
-from liptrf.models.layers.layers import LinearX
-from liptrf.models.timm_vit import VisionTransformer as ViT
+from liptrf.models.moderate import CIFAR10_C6F2_ReLU
 
 
 def train(args, model, device, train_loader,
@@ -32,6 +29,10 @@ def train(args, model, device, train_loader,
         correct += pred.eq(target.view_as(pred)).sum().item()
         optimizer.step()
 
+        with torch.no_grad():
+            if args.relax and epoch > args.warmup:
+                model.lipschitz()
+                model.apply_spec()
         torch.cuda.empty_cache()
 
     train_loss /= len(train_loader.dataset)
@@ -65,7 +66,8 @@ def test(args, model, device, test_loader, criterion):
           f"({100.*correct/test_samples:.0f}%), " +
           f"Error: {(test_samples-correct)/test_samples * 100:.2f}% " +
           f"Lipschitz {lip:4f} \n")
-    return 100.*correct/test_samples, test_loss
+    return 100.*correct/test_samples, test_loss, lip
+
 
 def main():
     # Training settings
@@ -73,8 +75,10 @@ def main():
     parser.add_argument('--task', type=str, default='train',
                         help='train/retrain/extract/test')
 
-    parser.add_argument('--layers', type=int, default=12)
-    
+    parser.add_argument('--relax', action='store_true')
+    parser.add_argument('--lmbda', type=float, default=1.)
+    parser.add_argument('--warmup', type=int, default=0)
+
     parser.add_argument('--batch_size', type=int, default=64, metavar='N',
                         help='input batch size for training (default: 64)')
     parser.add_argument('--epochs', type=int, default=14, metavar='N',
@@ -95,10 +99,8 @@ def main():
 
     parser.add_argument('--data_path', type=str, required=True,
                         help='data path of CIFAR10')
-    parser.add_argument('--weight_path', type=str, required=False,
-                        help='weight path of CIFAR100')
-    parser.add_argument('--dp_weight_path', type=str, required=True,
-                        help='weight path of ViT trained with DP attention')
+    parser.add_argument('--weight_path', type=str, required=True,
+                        help='weight path of CIFAR10')
 
     args = parser.parse_args()
 
@@ -107,14 +109,13 @@ def main():
 
     print('==> Preparing data..')
     transform_train = transforms.Compose([
-        transforms.Resize(224),
+        transforms.RandomCrop(32, padding=4),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
         transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
     ])
 
     transform_test = transforms.Compose([
-        transforms.Resize(224),
         transforms.ToTensor(),
         transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
     ])
@@ -129,28 +130,13 @@ def main():
     test_loader = torch.utils.data.DataLoader(
         testset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
 
-    model =  ViT(patch_size=16, embed_dim=192, depth=12, num_heads=3, lmbda=1, num_classes=10)
-    args.layers = 12
-    weight = torch.load(args.dp_weight_path)
-    model.load_state_dict(weight, strict=False)
+    classes = ('plane', 'car', 'bird', 'cat', 'deer',
+            'dog', 'frog', 'horse', 'ship', 'truck')
+
+    model = CIFAR10_C6F2_ReLU().cuda()
     criterion = nn.CrossEntropyLoss()
-    
-    for param in model.parameters():
-        param.requires_grad = False 
-
-    if args.task == 'trai':
-        for i in range(args.layers):
-            model.blocks[i].attn = L2Attention(dim=192, heads=3, dropout=0.1)
-
-    model = model.to(device)
-
-    for layer in model.modules():
-        if isinstance(layer, LinearX):
-            layer.iter = 1
-    
     if args.opt == 'adam': 
-        optimizer = optim.Adam(model.parameters(), lr=args.lr,
-                               betas=(0.9, 0.999), weight_decay=5e-5)
+        optimizer = optim.Adam(model.parameters(), lr=args.lr)
     elif args.opt == 'sgd': 
         optimizer = optim.SGD(model.parameters(), lr=args.lr, 
                         momentum=0.9,
@@ -163,32 +149,46 @@ def main():
     else:
         scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs, 
                                                          eta_min=1e-5)
+
     if args.task == 'train':
-        weight_path = os.path.join(args.dp_weight_path.replace('.pt', '_L2-Adapted_all.pt'))
+        if not args.relax:
+            weight_path = os.path.join(args.weight_path, f"CIFAR10_C6F2_ReLU_seed-{args.seed}")
+        else:
+            weight_path = os.path.join(args.weight_path, f"CIFAR10_C6F2_ReLU_seed-{args.seed}_relax-{args.lmbda}_warmup-{args.warmup}")
+        weight_path += f".pt"
+
         fout = open(weight_path.replace('.pt', '.csv').replace('weights', 'logs'), 'w')
         w = csv.writer(fout)
+
+        if not os.path.exists(args.weight_path):
+            os.mkdir(args.weight_path)
 
         best_acc = -1
         for epoch in range(1, args.epochs + 1):
             train(args, model, device, train_loader,
                   optimizer, epoch, criterion, False)
-            acc, loss = test(args, model, device, test_loader, criterion)
-            w.writerow([epoch, acc, loss, 'NaN'])
+            acc, loss, lip = test(args, model, device, test_loader, criterion)
+            w.writerow([epoch, acc, loss, lip])
         
             if args.cos:
                 scheduler.step(epoch-1)
             else:
                 scheduler.step(loss)
         
-            if acc > best_acc:
+            if acc > best_acc and epoch >= args.warmup:
                 best_acc = acc
                 torch.save(model.state_dict(), weight_path)
+        
+        fout.close() 
 
     if args.task == 'test':
         weight = torch.load(args.weight_path, map_location=device)
         model.load_state_dict(weight, strict=False)
-        model.eval()
+        # for layer in model.modules():
+        #     if isinstance(layer, LinearX):
+        #         layer.rand_x = nn.Parameter(trunc(layer.rand_x.shape))
+        model = model.to(device)
         test(args, model, device, test_loader, criterion)
-            
+
 if __name__ == '__main__':
     main()

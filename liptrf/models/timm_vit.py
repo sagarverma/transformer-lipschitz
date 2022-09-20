@@ -9,7 +9,7 @@ import torch.nn.functional as F
 import torch.utils.checkpoint
 from timm.models.layers.helpers import to_2tuple
 
-from liptrf.models.layers import LinearX
+from liptrf.models.layers.linear import LinearX
 from liptrf.models.vit import L2Attention
 
 

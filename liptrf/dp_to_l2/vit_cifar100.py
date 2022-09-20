@@ -12,7 +12,7 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 
 from liptrf.models.vit import L2Attention
-from liptrf.models.layers import LinearX
+from liptrf.models.layers.layers import LinearX
 from liptrf.models.timm_vit import VisionTransformer as ViT
 
 

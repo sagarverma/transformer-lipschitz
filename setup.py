@@ -16,8 +16,8 @@ setup(
   ],
   install_requires=[
     'einops>=0.4.1',
-    'torch>=1.10',
-    'torchvision',
+    # 'torch>=1.10',
+    # 'torchvision',
     'jupyterlab',
     'matplotlib',
     'timm==0.5.4',

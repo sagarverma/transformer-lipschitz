@@ -3,6 +3,9 @@ import math
 import torch
 import torch.nn as nn 
 
+from liptrf.models.layers.linear import LinearX
+from liptrf.models.layers.conv import Conv2dX
+
 
 class ReLU_x(nn.Module):
     # learnable relu, has a threshold for each input entry
@@ -246,32 +249,41 @@ class CIFAR10_C6F2_CLMaxMin(nn.Module):
 
 class CIFAR10_C6F2_ReLU(nn.Module):
 
-    def __init__(self, init=2.0):
+    def __init__(self, init=2.0, 
+                 power_iter=5, lmbda=1, lc_gamma=0.1, lc_alpha=0.01, lr=1.2, eta=1e-2):
         super(CIFAR10_C6F2_ReLU, self).__init__()
-        self.conv1 = nn.Conv2d(3, 32, 3, stride=1, padding=1)
+        self.conv1 = Conv2dX(3, 32, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.relu1 = nn.ReLU()
-        self.conv2 = nn.Conv2d(32, 32, 3, stride=1, padding=1)
+        self.conv2 = Conv2dX(32, 32, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.relu2 = nn.ReLU()
-        self.conv3 = nn.Conv2d(32, 32, 4, stride=2, padding=1)
+        self.conv3 = Conv2dX(32, 32, 4, stride=2, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.relu3 = nn.ReLU()
-        self.conv4 = nn.Conv2d(32, 64, 3, stride=1, padding=1)
+        self.conv4 = Conv2dX(32, 64, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.relu4 = nn.ReLU()
-        self.conv5 = nn.Conv2d(64, 64, 3, stride=1, padding=1)
+        self.conv5 = Conv2dX(64, 64, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.relu5 = nn.ReLU()
-        self.conv6 = nn.Conv2d(64, 64, 4, stride=2, padding=1)
+        self.conv6 = Conv2dX(64, 64, 4, stride=2, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.relu6 = nn.ReLU()
         
         self.flatten = Flatten()
         
-        self.fc1 = nn.Linear(4096,512)
+        self.fc1 = LinearX(4096, 512, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.relu7 = nn.ReLU()
-        self.fc2 = nn.Linear(512,10)
+        self.fc2 = LinearX(512, 10, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
 
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-                m.weight.data.normal_(0, math.sqrt(2. / n))
-                m.bias.data.zero_()
+        # for m in self.modules():
+        #     if isinstance(m, Conv2dX):
+        #         n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+        #         m.weight.data.normal_(0, math.sqrt(2. / n))
+        #         m.bias.data.zero_()
 
     def forward(self, x):
         x = self.relu1(self.conv1(x))
@@ -287,6 +299,14 @@ class CIFAR10_C6F2_ReLU(nn.Module):
         x = self.fc2(x)
 
         return x 
+
+    def lipschitz(self):
+        lc = 1 
+        for layer in self.children():
+            if isinstance(layer, Conv2dX) or isinstance(layer, LinearX):
+                lc *= layer.lipschitz()
+        torch.cuda.empty_cache()
+        return lc
 
 class TinyImageNet_8C2F_ReLUx(nn.Module):
 

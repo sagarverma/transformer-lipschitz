@@ -10,7 +10,7 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 
 from liptrf.models.timm_vit import VisionTransformer as ViT
-from liptrf.models.layers import LinearX
+from liptrf.models.layers.layers import LinearX
 
 
 def liprex(args, model, layers, device, train_loader, criterion, optimizer, epoch):

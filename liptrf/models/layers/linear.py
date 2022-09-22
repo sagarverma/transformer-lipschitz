@@ -30,6 +30,7 @@ class LinearX(nn.Module):
         self.lr = lr
         self.prox_done = False 
         self.proj_done = False
+        print (self.power_iter)
 
         nn.init.orthogonal_(self.weight)
 
@@ -133,87 +134,87 @@ class LinearX(nn.Module):
         self.weight_t = (self.weight_t + self.lr * (self.proj_weight - self.prox_weight)).clone().detach()
         # print (f"Norm weight_t {torch.linalg.norm(self.weight_t)}")
 
-torch.manual_seed(0)
-model = LinearX(32, 32).cuda()
-inp = torch.ones(60000, 32).cuda()
-out = inp * 2
+# torch.manual_seed(0)
+# model = LinearX(32, 32).cuda()
+# inp = torch.ones(60000, 32).cuda()
+# out = inp * 2
 
-crit = nn.MSELoss()
-optim = torch.optim.SGD(model.parameters(), lr=0.1)
+# crit = nn.MSELoss()
+# optim = torch.optim.SGD(model.parameters(), lr=0.1)
 
-for i in range(100):
-    optim.zero_grad()
-    pred = model(inp)
-    loss = crit(pred, out)
-    loss.backward()
-    optim.step()
+# for i in range(100):
+#     optim.zero_grad()
+#     pred = model(inp)
+#     loss = crit(pred, out)
+#     loss.backward()
+#     optim.step()
 
-print (i, loss.item(), model.lipschitz())
+# print (i, loss.item(), model.lipschitz())
 
-model = LinearX(32, 32, lmbda=1).cuda()
-optim = torch.optim.SGD(model.parameters(), lr=0.1)
+# model = LinearX(32, 32, lmbda=1).cuda()
+# optim = torch.optim.SGD(model.parameters(), lr=0.1)
 
-for i in range(100):
-    optim.zero_grad()
-    pred = model(inp)
-    loss = crit(pred, out)
-    model.lipschitz()
-    if i > 30:
-        model.apply_spec()
-    loss.backward()
-    optim.step()
+# for i in range(100):
+#     optim.zero_grad()
+#     pred = model(inp)
+#     loss = crit(pred, out)
+#     model.lipschitz()
+#     if i > 30:
+#         model.apply_spec()
+#     loss.backward()
+#     optim.step()
 
-print (i, loss.item(), model.lipschitz())
-
-
-model = LinearX(32, 32, power_iter=10, lmbda=1, lc_gamma=0.5, lc_alpha=0.001, lr=1.2, eta=1e-3).cuda()
-optim = torch.optim.SGD(model.parameters(), lr=0.1)
-
-for i in range(100):
-    optim.zero_grad()
-    pred = model(inp)
-    loss = crit(pred, out)
-    loss.backward()
-    optim.step()
-
-print (i, loss.item(), model.lipschitz())
-
-model.eval()
+# print (i, loss.item(), model.lipschitz())
 
 
-model.weight_t = model.weight.clone().detach()
-model.weight_old = model.weight.clone().detach()
-# soft thresholding l1-norm
-# model.weight_t = (torch.abs(model.weight_t) + model.lc_gamma) * torch.sign(model.weight_t)
+# model = LinearX(32, 32, power_iter=10, lmbda=1, lc_gamma=0.5, lc_alpha=0.001, lr=1.2, eta=1e-3).cuda()
+# optim = torch.optim.SGD(model.parameters(), lr=0.1)
 
-# soft thresholding lip constrained
-# wt = torch.abs(model.weight_t)
-# wt[wt > model.lc_alpha * torch.linalg.norm(wt)] += model.lc_gamma
-# model.weight_t = wt * torch.sign(model.weight_t)
+# for i in range(100):
+#     optim.zero_grad()
+#     pred = model(inp)
+#     loss = crit(pred, out)
+#     loss.backward()
+#     optim.step()
 
-for i in range(100):
-    model.prox()
-    for j in range(1000):
-        # print (f"Prox epoch {i} Proj Epoch {j}")
-        model.proj_weight_old = model.proj_weight.clone().detach()
-        for b in range(8):
-            pred = model(inp[b*8:(b+1)*8, :])
-            model.proj()
-        if torch.linalg.norm(model.proj_weight - model.proj_weight_old) < 1e-9 * torch.linalg.norm(model.proj_weight):
-            print ('convergence')
-            break 
+# print (i, loss.item(), model.lipschitz())
+
+# model.eval()
+
+
+# model.weight_t = model.weight.clone().detach()
+# model.weight_old = model.weight.clone().detach()
+# # soft thresholding l1-norm
+# # model.weight_t = (torch.abs(model.weight_t) + model.lc_gamma) * torch.sign(model.weight_t)
+
+# # soft thresholding lip constrained
+# # wt = torch.abs(model.weight_t)
+# # wt[wt > model.lc_alpha * torch.linalg.norm(wt)] += model.lc_gamma
+# # model.weight_t = wt * torch.sign(model.weight_t)
+
+# for i in range(100):
+#     model.prox()
+#     for j in range(1000):
+#         # print (f"Prox epoch {i} Proj Epoch {j}")
+#         model.proj_weight_old = model.proj_weight.clone().detach()
+#         for b in range(8):
+#             pred = model(inp[b*8:(b+1)*8, :])
+#             model.proj()
+#         if torch.linalg.norm(model.proj_weight - model.proj_weight_old) < 1e-9 * torch.linalg.norm(model.proj_weight):
+#             print ('convergence')
+#             break 
     
-    model.update()
-    # model.weight = nn.Parameter(model.prox_weight)
-    # pred = model(inp)
-    # loss = crit(pred, out)
-    # print (loss.item(), model.lipschitz())
+#     model.update()
+#     # model.weight = nn.Parameter(model.prox_weight)
+#     # pred = model(inp)
+#     # loss = crit(pred, out)
+#     # print (loss.item(), model.lipschitz())
 
-    if torch.linalg.norm(model.weight_t - model.weight_old) < 1e-7 * torch.norm(model.weight_t):
-        print ("prox conv")
-        break
+#     if torch.linalg.norm(model.weight_t - model.weight_old) < 1e-7 * torch.norm(model.weight_t):
+#         print ("prox conv")
+#         break
 
-model.weight = nn.Parameter(model.prox_weight)
-pred = model(inp)
-loss = crit(pred, out)
-print (loss.item(), model.lipschitz())
+# model.weight = nn.Parameter(model.prox_weight)
+# pred = model(inp)
+# loss = crit(pred, out)
+# print (loss.item(), model.lipschitz())

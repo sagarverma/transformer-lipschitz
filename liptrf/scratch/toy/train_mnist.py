@@ -11,6 +11,7 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 
 from liptrf.models.linear_toy import Net
+from liptrf.models.moderate import MNIST_4C3F_ReLUx
 
 
 def train(args, model, device, train_loader,
@@ -106,10 +107,18 @@ def main():
     torch.manual_seed(args.seed)
     device = torch.device(args.gpu)
 
-    transform=transforms.Compose([
+    if args.model == 'linear':
+        transform=transforms.Compose([
         transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,))
+        transforms.Normalize((0.1307,), (0.3081,)),
+        transforms.Lambda(lambda x: torch.flatten(x))
         ])
+    else:
+        transform=transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.1307,), (0.3081,))
+            ])
+
     dataset1 = datasets.MNIST(args.data_path, train=True, download=True,
                        transform=transform)
     dataset2 = datasets.MNIST(args.data_path, train=False,
@@ -119,8 +128,10 @@ def main():
     test_loader = torch.utils.data.DataLoader(dataset2, batch_size=args.batch_size, 
                                                 num_workers=args.num_workers, shuffle=False)
 
-    model = Net(lmbda=args.lmbda).to(device)
-    args.layers = 3 
+    if args.model == 'linear':
+        model = Net(lmbda=args.lmbda).to(device)
+    elif args.model == '4c3f_relux':
+        model = MNIST_4C3F_ReLUx(lmbda=args.lmbda).to(device)
     
     criterion = nn.CrossEntropyLoss()
     if args.opt == 'adam': 
@@ -136,13 +147,10 @@ def main():
 
     if args.task == 'train':
         if not args.relax:
-            weight_path = os.path.join(args.weight_path, f"linear_mnist_seed-{args.seed}_layers-{args.layers}")
+            weight_path = os.path.join(args.weight_path, f"MNIST_{args.model}_seed-{args.seed}")
         else:
-            weight_path = os.path.join(args.weight_path, f"linear_mnist_seed-{args.seed}_layers-{args.layers}_relax-{args.lmbda}_warmup-{args.warmup}")
-        if args.model == 'vit':
-            weight_path += f"_att-{args.attention_type}.pt"
-        else:
-            weight_path += f".pt"
+            weight_path = os.path.join(args.weight_path, f"MNIST_{args.model}_seed-{args.seed}_relax-{args.lmbda}_warmup-{args.warmup}")
+        weight_path += f".pt"
 
         fout = open(weight_path.replace('.pt', '.csv').replace('weights', 'logs'), 'w')
         w = csv.writer(fout)

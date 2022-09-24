@@ -40,13 +40,16 @@ class FeedForward(nn.Module):
         dim: int, 
         hidden_dim: int, 
         dropout: float = 0.,
-        lmbda: float = 1.
+        power_iter=5, lmbda=1, 
+         lc_gamma=0.1, lc_alpha=0.01, lr=1.2, eta=1e-2
     ) -> None:
         super().__init__()
-        self.fc1 = LinearX(dim, hidden_dim, iter=2, lmbda=lmbda)
+        self.fc1 = LinearX(dim, hidden_dim, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.gelu = nn.GELU()
         self.dropout = nn.Dropout(dropout)
-        self.fc2 = LinearX(hidden_dim, dim, iter=2, lmbda=lmbda)
+        self.fc2 = LinearX(hidden_dim, dim, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         
      
     def forward(
@@ -80,7 +83,8 @@ class L2Attention(nn.Module):
         heads: int = 8,
         dropout: float = 0.,
         n_value: int = 1,
-        lmbda: float = 1.,
+        power_iter=5, lmbda=1, 
+         lc_gamma=0.1, lc_alpha=0.01, lr=1.2, eta=1e-2,
         device: int = 0
     ) -> None:
         super().__init__()
@@ -95,9 +99,12 @@ class L2Attention(nn.Module):
 
         self.attend = nn.Softmax(dim = -1)
 
-        self.to_q = LinearX(dim, dim, iter=5, lmbda=lmbda)
-        self.to_v = LinearX(dim, dim, iter=5, lmbda=lmbda)
-        self.to_out = LinearX(dim, dim, iter=5, lmbda=lmbda)
+        self.to_q = LinearX(dim, dim, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+        self.to_v = LinearX(dim, dim, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+        self.to_out = LinearX(dim, dim, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.dropout =  nn.Dropout(dropout)
          
     def forward(
@@ -141,7 +148,8 @@ class Attention(nn.Module):
         heads: int = 8, 
         dropout: float = 0.,
         n_value: int = 1, 
-        lmbda: float = 1.,
+        power_iter=5, lmbda=1, 
+         lc_gamma=0.1, lc_alpha=0.01, lr=1.2, eta=1e-2,
         device: int = 1
     ) -> None:
         super().__init__()
@@ -153,9 +161,11 @@ class Attention(nn.Module):
 
         self.attend = nn.Softmax(dim = -1)
 
-        self.to_qkv = LinearX(dim, dim * 3, iter=2, lmbda=lmbda)
+        self.to_qkv = LinearX(dim, dim * 3, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
 
-        self.to_out = LinearX(dim, dim, iter=2, lmbda=lmbda)
+        self.to_out = LinearX(dim, dim, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.dropout =  nn.Dropout(dropout)
 
     def forward(
@@ -187,7 +197,8 @@ class Transformer(nn.Module):
         dropout: float = 0., 
         attention_type: str = "DP",
         n_value: int = 1,
-        lmbda: float = 1.,
+        power_iter=5, lmbda=1, 
+         lc_gamma=0.1, lc_alpha=0.01, lr=1.2, eta=1e-2,
         device: int = 0
     ) -> None:
         super().__init__()
@@ -200,8 +211,10 @@ class Transformer(nn.Module):
 
         for _ in range(depth):
             self.layers.append(nn.ModuleList([
-                PreNorm(dim, attention(dim, heads = heads, dropout = dropout, n_value = n_value, lmbda = lmbda, device=device)),
-                PreNorm(dim, FeedForward(dim, mlp_hidden_dim, dropout = dropout, lmbda = lmbda))
+                PreNorm(dim, attention(dim, heads = heads, dropout = dropout, n_value = n_value, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, device=device)),
+                PreNorm(dim, FeedForward(dim, mlp_hidden_dim, dropout = dropout, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta))
             ]))
 
     def forward(
@@ -241,7 +254,8 @@ class ViT(nn.Module):
         dropout: int = 0., 
         emb_dropout: int = 0.,
         attention_type: str = "DP",
-        lmbda: float = 1.,
+        power_iter=5, lmbda=1, 
+         lc_gamma=0.1, lc_alpha=0.01, lr=1.2, eta=1e-2,
         device: int = 0
     ) -> None:
         super().__init__()
@@ -255,20 +269,23 @@ class ViT(nn.Module):
         assert pool in {'cls', 'mean'}, 'pool type must be either cls (cls token) or mean (mean pooling)'
 
         self.rearrange_patch = Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1 = patch_height, p2 = patch_width)
-        self.to_patch_embedding = LinearX(patch_dim, dim, iter=2, lmbda=lmbda)
+        self.to_patch_embedding = LinearX(patch_dim, dim, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
 
         self.pos_embedding = nn.Parameter(torch.randn(1, num_patches + 1, dim))
         self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
         self.dropout = nn.Dropout(emb_dropout)
 
         self.transformer = Transformer(dim, depth, heads, mlp_ratio, dropout, 
-                                       attention_type, num_patches, lmbda=lmbda, device=device)
+                                       attention_type, num_patches, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, device=device)
 
         self.pool = pool
         self.to_latent = nn.Identity()
 
         self.mlp_ln = nn.LayerNorm(dim)
-        self.mlp_head = LinearX(dim, num_classes, iter=2, lmbda=lmbda)
+        self.mlp_head = LinearX(dim, num_classes, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
 
     def forward(
         self, 

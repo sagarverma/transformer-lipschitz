@@ -10,7 +10,7 @@ import torch.nn.functional as F
 import torch.optim as optim 
 from torchvision import datasets, transforms
 
-from liptrf.models.vit import ViT
+from liptrf.models.moderate import CIFAR100_6C2F_ReLUx, CIFAR100_8C2F_ReLUx
 
 
 def train(args, model, device, train_loader,
@@ -71,16 +71,13 @@ def test(args, model, device, test_loader, criterion):
 
 def main():
     # Training settings
-    parser = argparse.ArgumentParser(description='PyTorch CIFAR100 ViT')
+    parser = argparse.ArgumentParser(description='PyTorch CIFAR100')
     parser.add_argument('--task', type=str, default='train',
                         help='train/retrain/extract/test')
 
-    parser.add_argument('--layers', type=int, default=1)
     parser.add_argument('--relax', action='store_true')
     parser.add_argument('--lmbda', type=float, default=1.)
     parser.add_argument('--warmup', type=int, default=0)
-    parser.add_argument('--attention_type', type=str, default='L2',
-                        help='L2/DP')
 
     parser.add_argument('--batch_size', type=int, default=64, metavar='N',
                         help='input batch size for training (default: 64)')
@@ -94,6 +91,7 @@ def main():
                         help='Number of cores to use')
     parser.add_argument('--cos', action='store_false', 
                         help='Train with cosine annealing scheduling')
+    parser.add_argument('--model', type=str, default='6c2f_relux')
 
     parser.add_argument('--gpu', type=int, default=0,
                         help='gpu to use')
@@ -133,11 +131,11 @@ def main():
     test_loader = torch.utils.data.DataLoader(
         testset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
 
-    model = ViT(image_size=32, patch_size=4, num_classes=100, channels=3,
-        dim=192, depth=args.layers, heads=3, mlp_ratio=4, attention_type=args.attention_type, 
-        dropout=0.1, lmbda=args.lmbda, device=device).to(device)
+    if args.model == '6c2f_relux':
+        model = CIFAR100_6C2F_ReLUx(lmbda=args.lmbda).to(device)
+    elif args.model == '8c2f_relux':
+        model = CIFAR100_8C2F_ReLUx(lmbda=args.lmbda).to(device)
 
-    print (sum(p.numel() for p in model.parameters()))
     criterion = nn.CrossEntropyLoss()
     if args.opt == 'adam': 
         optimizer = optim.Adam(model.parameters(), lr=args.lr,
@@ -157,10 +155,10 @@ def main():
 
     if args.task == 'train':
         if not args.relax:
-            weight_path = os.path.join(args.weight_path, f"vit_cifar100_seed-{args.seed}_layers-{args.layers}")
+            weight_path = os.path.join(args.weight_path, f"CIFAR100_{args.model}_seed-{args.seed}")
         else:
-            weight_path = os.path.join(args.weight_path, f"vit_cifar100_seed-{args.seed}_layers-{args.layers}_relax-{args.lmbda}_warmup-{args.warmup}")
-        weight_path += f"_att-{args.attention_type}.pt"
+            weight_path = os.path.join(args.weight_path, f"CIFAR100_{args.model}_seed-{args.seed}_relax-{args.lmbda}_warmup-{args.warmup}")
+        weight_path += f".pt"
 
         fout = open(weight_path.replace('.pt', '.csv').replace('weights', 'logs'), 'w')
         w = csv.writer(fout)

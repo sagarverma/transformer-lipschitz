@@ -39,30 +39,33 @@ class ClampGroupSort(nn.Module):
 
 class MNIST_4C3F_ReLUx(nn.Module):
     
-    def __init__(self):
+    def __init__(self, 
+                 power_iter=5, lmbda=1, lc_gamma=0.1, lc_alpha=0.01, lr=1.2, eta=1e-2):
         super(MNIST_4C3F_ReLUx, self).__init__()
-        self.conv1 = nn.Conv2d(1, 32, 3, stride=1, padding=1)
+        self.conv1 = Conv2dX(1, 32, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.relu1 = ReLU_x(torch.Size([1, 32, 28, 28]))
-        self.conv2 = nn.Conv2d(32, 32, 4, stride=2, padding=1)
+        self.conv2 = Conv2dX(32, 32, 4, stride=2, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.relu2 = ReLU_x(torch.Size([1, 32, 14, 14]))
-        self.conv3 = nn.Conv2d(32, 64, 3, stride=1, padding=1)
+        self.conv3 = Conv2dX(32, 64, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.relu3 = ReLU_x(torch.Size([1, 64, 14, 14]))
-        self.conv4 = nn.Conv2d(64, 64, 4, stride=2, padding=1)
+        self.conv4 = Conv2dX(64, 64, 4, stride=2, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.relu4 = ReLU_x(torch.Size([1, 64, 7, 7]))
         
         self.flatten = Flatten()
         
-        self.fc1 = nn.Linear(64*7*7,512)
+        self.fc1 = LinearX(64*7*7, 512, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.relu5 = ReLU_x(torch.Size([1, 512]))
-        self.fc2 = nn.Linear(512,512)
+        self.fc2 = LinearX(512, 512, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.relu6 = ReLU_x(torch.Size([1, 512]))
-        self.fc3 = nn.Linear(512,10)
+        self.fc3 = LinearX(512, 10, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
 
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-                m.weight.data.normal_(0, math.sqrt(2. / n))
-                m.bias.data.zero_()
 
     def forward(self, x):
         x = self.relu1(self.conv1(x))
@@ -78,32 +81,81 @@ class MNIST_4C3F_ReLUx(nn.Module):
 
         return x 
 
+    def forward_lip(self, x):
+        x = self.conv1(x)
+        x[x < 0] -= self.conv1.lc
+        x[x > 0] += self.conv1.lc
+        x = self.relu1(x)
+
+        x = self.conv2(x)
+        x[x < 0] -= self.conv2.lc
+        x[x > 0] += self.conv2.lc
+        x = self.relu2(x)
+
+        x = self.conv3(x)
+        x[x < 0] -= self.conv3.lc
+        x[x > 0] += self.conv3.lc
+        x = self.relu3(x)
+
+        x = self.conv4(x)
+        x[x < 0] -= self.conv4.lc
+        x[x > 0] += self.conv4.lc
+        x = self.relu4(x)
+
+        x = self.flatten(x)
+
+        x = self.fc1(x)
+        x[x < 0] -= self.fc1.lc
+        x[x > 0] += self.fc1.lc
+        x = self.relu5(x)
+
+        x = self.fc2(x)
+        x[x < 0] -= self.fc2.lc
+        x[x > 0] += self.fc2.lc
+        x = self.relu6(x)
+
+        x = self.fc3(x)
+
+        return x 
+
+    def lipschitz(self):
+        lc = 1 
+        for layer in self.children():
+            if isinstance(layer, Conv2dX) or isinstance(layer, LinearX):
+                lc *= layer.lipschitz()
+        torch.cuda.empty_cache()
+        return lc
+
+
 class MNIST_4C3F_ReLU(nn.Module):
     
-    def __init__(self):
+    def __init__(self, 
+                 power_iter=5, lmbda=1, lc_gamma=0.1, lc_alpha=0.01, lr=1.2, eta=1e-2):
         super(MNIST_4C3F_ReLU, self).__init__()
-        self.conv1 = nn.Conv2d(1, 32, 3, stride=1, padding=1)
+        self.conv1 = Conv2dX(1, 32, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.relu1 = nn.ReLU()
-        self.conv2 = nn.Conv2d(32, 32, 4, stride=2, padding=1)
+        self.conv2 = Conv2dX(32, 32, 4, stride=2, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.relu2 = nn.ReLU()
-        self.conv3 = nn.Conv2d(32, 64, 3, stride=1, padding=1)
+        self.conv3 = Conv2dX(32, 64, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.relu3 = nn.ReLU()
-        self.conv4 = nn.Conv2d(64, 64, 4, stride=2, padding=1)
+        self.conv4 = Conv2dX(64, 64, 4, stride=2, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.relu4 = nn.ReLU()
         
         self.flatten = Flatten()
         
-        self.fc1 = nn.Linear(64*7*7,512)
+        self.fc1 = LinearX(64*7*7, 512, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.relu5 = nn.ReLU()
-        self.fc2 = nn.Linear(512,512)
+        self.fc2 = LinearX(512, 512, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.relu6 = nn.ReLU()
-        self.fc3 = nn.Linear(512,10)
+        self.fc3 = LinearX(512, 10, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
 
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-                m.weight.data.normal_(0, math.sqrt(2. / n))
-                m.bias.data.zero_()
 
     def forward(self, x):
         x = self.relu1(self.conv1(x))
@@ -117,34 +169,46 @@ class MNIST_4C3F_ReLU(nn.Module):
         x = self.relu6(self.fc2(x))
         x = self.fc3(x)
 
-        return x 
+        return x
+
+    def lipschitz(self):
+        lc = 1 
+        for layer in self.children():
+            if isinstance(layer, Conv2dX) or isinstance(layer, LinearX):
+                lc *= layer.lipschitz()
+        torch.cuda.empty_cache()
+        return lc
+
 
 class CIFAR10_4C3F_ReLUx(nn.Module):
 
-    def __init__(self):
+    def __init__(self, 
+                 power_iter=5, lmbda=1, lc_gamma=0.1, lc_alpha=0.01, lr=1.2, eta=1e-2):
         super(CIFAR10_4C3F_ReLUx, self).__init__()
-        self.conv1 = nn.Conv2d(3, 32, 3, stride=1, padding=1)
+        self.conv1 = Conv2dX(3, 32, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.relu1 = ReLU_x(torch.Size([1, 32, 32, 32]))
-        self.conv2 = nn.Conv2d(32, 32, 4, stride=2, padding=1)
+        self.conv2 = Conv2dX(32, 32, 4, stride=2, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.relu2 = ReLU_x(torch.Size([1, 32, 16, 16]))
-        self.conv3 = nn.Conv2d(32, 64, 3, stride=1, padding=1)
+        self.conv3 = Conv2dX(32, 64, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.relu3 = ReLU_x(torch.Size([1, 64, 16, 16]))
-        self.conv4 = nn.Conv2d(64, 64, 4, stride=2, padding=1)
+        self.conv4 = Conv2dX(64, 64, 4, stride=2, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.relu4 = ReLU_x(torch.Size([1, 64, 8, 8]))
         
         self.flatten = Flatten()
         
-        self.fc1 = nn.Linear(64*8*8,512)
+        self.fc1 = LinearX(64*8*8, 512, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.relu5 = ReLU_x(torch.Size([1, 512]))
-        self.fc2 = nn.Linear(512,512)
+        self.fc2 = LinearX(512, 512, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.relu6 = ReLU_x(torch.Size([1, 512]))
-        self.fc3 = nn.Linear(512,10)
+        self.fc3 = LinearX(512, 10, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
 
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-                m.weight.data.normal_(0, math.sqrt(2. / n))
-                m.bias.data.zero_()
 
     def forward(self, x):
         x = self.relu1(self.conv1(x))
@@ -160,33 +224,82 @@ class CIFAR10_4C3F_ReLUx(nn.Module):
 
         return x 
 
-class CIFAR10_C6F2_ReLUx(nn.Module):
-    def __init__(self, init=2.0):
-        super(CIFAR10_C6F2_ReLUx, self).__init__()
-        self.conv1 = nn.Conv2d(3, 32, 3, stride=1, padding=1)
+    def forward_lip(self, x):
+        x = self.conv1(x)
+        x[x < 0] -= self.conv1.lc
+        x[x > 0] += self.conv1.lc
+        x = self.relu1(x)
+
+        x = self.conv2(x)
+        x[x < 0] -= self.conv2.lc
+        x[x > 0] += self.conv2.lc
+        x = self.relu2(x)
+
+        x = self.conv3(x)
+        x[x < 0] -= self.conv3.lc
+        x[x > 0] += self.conv3.lc
+        x = self.relu3(x)
+
+        x = self.conv4(x)
+        x[x < 0] -= self.conv4.lc
+        x[x > 0] += self.conv4.lc
+        x = self.relu4(x)
+
+        x = self.flatten(x)
+
+        x = self.fc1(x)
+        x[x < 0] -= self.fc1.lc
+        x[x > 0] += self.fc1.lc
+        x = self.relu5(x)
+
+        x = self.fc2(x)
+        x[x < 0] -= self.fc2.lc
+        x[x > 0] += self.fc2.lc
+        x = self.relu6(x)
+
+        x = self.fc3(x)
+
+        return x 
+
+    def lipschitz(self):
+        lc = 1 
+        for layer in self.children():
+            if isinstance(layer, Conv2dX) or isinstance(layer, LinearX):
+                lc *= layer.lipschitz()
+        torch.cuda.empty_cache()
+        return lc
+
+
+class CIFAR10_6C2F_ReLUx(nn.Module):
+    def __init__(self, init=2.0, 
+                 power_iter=5, lmbda=1, lc_gamma=0.1, lc_alpha=0.01, lr=1.2, eta=1e-2):
+        super(CIFAR10_6C2F_ReLUx, self).__init__()
+        self.conv1 = Conv2dX(3, 32, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.relu1 = ReLU_x(torch.Size([1, 32, 32, 32]), init)
-        self.conv2 = nn.Conv2d(32, 32, 3, stride=1, padding=1)
+        self.conv2 = Conv2dX(32, 32, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.relu2 = ReLU_x(torch.Size([1, 32, 32, 32]), init)
-        self.conv3 = nn.Conv2d(32, 32, 4, stride=2, padding=1)
+        self.conv3 = Conv2dX(32, 32, 4, stride=2, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.relu3 = ReLU_x(torch.Size([1, 32, 16, 16]), init)
-        self.conv4 = nn.Conv2d(32, 64, 3, stride=1, padding=1)
+        self.conv4 = Conv2dX(32, 64, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.relu4 = ReLU_x(torch.Size([1, 64, 16, 16]), init)
-        self.conv5 = nn.Conv2d(64, 64, 3, stride=1, padding=1)
+        self.conv5 = Conv2dX(64, 64, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.relu5 = ReLU_x(torch.Size([1, 64, 16, 16]), init)
-        self.conv6 = nn.Conv2d(64, 64, 4, stride=2, padding=1)
+        self.conv6 = Conv2dX(64, 64, 4, stride=2, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.relu6 = ReLU_x(torch.Size([1, 64, 8, 8]), init)
         
         self.flatten = Flatten()
         
-        self.fc1 = nn.Linear(4096,512)
+        self.fc1 = LinearX(4096, 512, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.relu7 = ReLU_x(torch.Size([1, 512]), init)
-        self.fc2 = nn.Linear(512,10)
-
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-                m.weight.data.normal_(0, math.sqrt(2. / n))
-                m.bias.data.zero_()
+        self.fc2 = LinearX(512, 10, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
 
     def forward(self, x):
         x = self.relu1(self.conv1(x))
@@ -203,34 +316,89 @@ class CIFAR10_C6F2_ReLUx(nn.Module):
 
         return x 
 
-class CIFAR10_C6F2_CLMaxMin(nn.Module):
+    def forward_lip(self, x):
+        x = self.conv1(x)
+        x[x < 0] -= self.conv1.lc
+        x[x > 0] += self.conv1.lc
+        x = self.relu1(x)
 
-    def __init__(self, init=2.0):
-        super(CIFAR10_C6F2_CLMaxMin, self).__init__()
-        self.conv1 = nn.Conv2d(3, 32, 3, stride=1, padding=1)
+        x = self.conv2(x)
+        x[x < 0] -= self.conv2.lc
+        x[x > 0] += self.conv2.lc
+        x = self.relu2(x)
+
+        x = self.conv3(x)
+        x[x < 0] -= self.conv3.lc
+        x[x > 0] += self.conv3.lc
+        x = self.relu3(x)
+
+        x = self.conv4(x)
+        x[x < 0] -= self.conv4.lc
+        x[x > 0] += self.conv4.lc
+        x = self.relu4(x)
+
+        x = self.conv5(x)
+        x[x < 0] -= self.conv5.lc
+        x[x > 0] += self.conv5.lc
+        x = self.relu5(x)
+
+        x = self.conv6(x)
+        x[x < 0] -= self.conv6.lc
+        x[x > 0] += self.conv6.lc
+        x = self.relu6(x)
+
+        x = self.flatten(x)
+
+        x = self.fc1(x)
+        x[x < 0] -= self.fc1.lc
+        x[x > 0] += self.fc1.lc
+        x = self.relu7(x)
+
+        x = self.fc2(x)
+
+        return x 
+
+    def lipschitz(self):
+        lc = 1 
+        for layer in self.children():
+            if isinstance(layer, Conv2dX) or isinstance(layer, LinearX):
+                lc *= layer.lipschitz()
+        torch.cuda.empty_cache()
+        return lc
+
+
+class CIFAR10_6C2F_CLMaxMin(nn.Module):
+
+    def __init__(self, init=2.0, 
+                 power_iter=5, lmbda=1, lc_gamma=0.1, lc_alpha=0.01, lr=1.2, eta=1e-2):
+        super(CIFAR10_6C2F_CLMaxMin, self).__init__()
+        self.conv1 = Conv2dX(3, 32, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.clamp1 = ClampGroupSort(torch.Size([1, 16, 32, 32]), 0.1, -0.1)
-        self.conv2 = nn.Conv2d(32, 32, 3, stride=1, padding=1)
+        self.conv2 = Conv2dX(32, 32, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.clamp2 = ClampGroupSort(torch.Size([1, 16, 32, 32]), 0.1, -0.15)
-        self.conv3 = nn.Conv2d(32, 32, 4, stride=2, padding=1)
+        self.conv3 = Conv2dX(32, 32, 4, stride=2, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.clamp3 = ClampGroupSort(torch.Size([1, 16, 16, 16]), 0.15, -0.15)
-        self.conv4 = nn.Conv2d(32, 64, 3, stride=1, padding=1)
+        self.conv4 = Conv2dX(32, 64, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.clamp4 = ClampGroupSort(torch.Size([1, 32, 16, 16]), 0.15, -0.15)
-        self.conv5 = nn.Conv2d(64, 64, 3, stride=1, padding=1)
+        self.conv5 = Conv2dX(64, 64, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.clamp5 = ClampGroupSort(torch.Size([1, 32, 16, 16]), 0.2, -0.2)
-        self.conv6 = nn.Conv2d(64, 64, 4, stride=2, padding=1)
+        self.conv6 = Conv2dX(64, 64, 4, stride=2, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.clamp6 = ClampGroupSort(torch.Size([1, 32, 8, 8]), 0.3, -0.3)
         
         self.flatten = Flatten()
         
-        self.fc1 = nn.Linear(4096,512)
+        self.fc1 = LinearX(4096, 512, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.clamp7 = ClampGroupSort(torch.Size([1, 256]), 1.2, -1.2)
-        self.fc2 = nn.Linear(512,10)
+        self.fc2 = LinearX(512, 10, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
 
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-                m.weight.data.normal_(0, math.sqrt(2. / n))
-                m.bias.data.zero_()
 
     def forward(self, x):
         x = self.clamp1(self.conv1(x))
@@ -247,11 +415,20 @@ class CIFAR10_C6F2_CLMaxMin(nn.Module):
 
         return x 
 
-class CIFAR10_C6F2_ReLU(nn.Module):
+    def lipschitz(self):
+        lc = 1 
+        for layer in self.children():
+            if isinstance(layer, Conv2dX) or isinstance(layer, LinearX):
+                lc *= layer.lipschitz()
+        torch.cuda.empty_cache()
+        return lc
+
+        
+class CIFAR10_6C2F_ReLU(nn.Module):
 
     def __init__(self, init=2.0, 
                  power_iter=5, lmbda=1, lc_gamma=0.1, lc_alpha=0.01, lr=1.2, eta=1e-2):
-        super(CIFAR10_C6F2_ReLU, self).__init__()
+        super(CIFAR10_6C2F_ReLU, self).__init__()
         self.conv1 = Conv2dX(3, 32, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
                              lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.relu1 = nn.ReLU()
@@ -279,11 +456,59 @@ class CIFAR10_C6F2_ReLU(nn.Module):
         self.fc2 = LinearX(512, 10, power_iter=power_iter, lmbda=lmbda, 
                              lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
 
-        # for m in self.modules():
-        #     if isinstance(m, Conv2dX):
-        #         n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-        #         m.weight.data.normal_(0, math.sqrt(2. / n))
-        #         m.bias.data.zero_()
+    def forward(self, x):
+        x = self.relu1(self.conv1(x))
+        x = self.relu2(self.conv2(x))
+        x = self.relu3(self.conv3(x))
+        x = self.relu4(self.conv4(x))
+        x = self.relu5(self.conv5(x))
+        x = self.relu6(self.conv6(x))
+        
+        x = self.flatten(x)
+
+        x = self.relu7(self.fc1(x))
+        x = self.fc2(x)
+
+        return x
+
+    def lipschitz(self):
+        lc = 1 
+        for layer in self.children():
+            if isinstance(layer, Conv2dX) or isinstance(layer, LinearX):
+                lc *= layer.lipschitz()
+        torch.cuda.empty_cache()
+        return lc
+
+class CIFAR100_6C2F_ReLUx(nn.Module):
+    def __init__(self, init=2.0, 
+                 power_iter=5, lmbda=1, lc_gamma=0.1, lc_alpha=0.01, lr=1.2, eta=1e-2):
+        super(CIFAR100_6C2F_ReLUx, self).__init__()
+        self.conv1 = Conv2dX(3, 32, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+        self.relu1 = ReLU_x(torch.Size([1, 32, 32, 32]), init)
+        self.conv2 = Conv2dX(32, 32, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+        self.relu2 = ReLU_x(torch.Size([1, 32, 32, 32]), init)
+        self.conv3 = Conv2dX(32, 32, 4, stride=2, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+        self.relu3 = ReLU_x(torch.Size([1, 32, 16, 16]), init)
+        self.conv4 = Conv2dX(32, 64, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+        self.relu4 = ReLU_x(torch.Size([1, 64, 16, 16]), init)
+        self.conv5 = Conv2dX(64, 64, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+        self.relu5 = ReLU_x(torch.Size([1, 64, 16, 16]), init)
+        self.conv6 = Conv2dX(64, 64, 4, stride=2, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+        self.relu6 = ReLU_x(torch.Size([1, 64, 8, 8]), init)
+        
+        self.flatten = Flatten()
+        
+        self.fc1 = LinearX(4096, 512, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+        self.relu7 = ReLU_x(torch.Size([1, 512]), init)
+        self.fc2 = LinearX(512, 100, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
 
     def forward(self, x):
         x = self.relu1(self.conv1(x))
@@ -300,6 +525,48 @@ class CIFAR10_C6F2_ReLU(nn.Module):
 
         return x 
 
+    def forward_lip(self, x):
+        x = self.conv1(x)
+        x[x < 0] -= self.conv1.lc
+        x[x > 0] += self.conv1.lc
+        x = self.relu1(x)
+
+        x = self.conv2(x)
+        x[x < 0] -= self.conv2.lc
+        x[x > 0] += self.conv2.lc
+        x = self.relu2(x)
+
+        x = self.conv3(x)
+        x[x < 0] -= self.conv3.lc
+        x[x > 0] += self.conv3.lc
+        x = self.relu3(x)
+
+        x = self.conv4(x)
+        x[x < 0] -= self.conv4.lc
+        x[x > 0] += self.conv4.lc
+        x = self.relu4(x)
+
+        x = self.conv5(x)
+        x[x < 0] -= self.conv5.lc
+        x[x > 0] += self.conv5.lc
+        x = self.relu5(x)
+
+        x = self.conv6(x)
+        x[x < 0] -= self.conv6.lc
+        x[x > 0] += self.conv6.lc
+        x = self.relu6(x)
+
+        x = self.flatten(x)
+
+        x = self.fc1(x)
+        x[x < 0] -= self.fc1.lc
+        x[x > 0] += self.fc1.lc
+        x = self.relu7(x)
+
+        x = self.fc2(x)
+
+        return x 
+
     def lipschitz(self):
         lc = 1 
         for layer in self.children():
@@ -308,38 +575,43 @@ class CIFAR10_C6F2_ReLU(nn.Module):
         torch.cuda.empty_cache()
         return lc
 
-class TinyImageNet_8C2F_ReLUx(nn.Module):
+class CIFAR100_8C2F_ReLUx(nn.Module):
 
-    def __init__(self, init=1.0):
-        super(TinyImageNet_8C2F_ReLUx, self).__init__()
-        self.conv1 = nn.Conv2d(3, 64, 3, stride=1, padding=1)
-        self.relu1 = ReLU_x(torch.Size([1, 64, 64, 64]), init)
-        self.conv2 = nn.Conv2d(64, 64, 3, stride=1, padding=1)
-        self.relu2 = ReLU_x(torch.Size([1, 64, 64, 64]), init)
-        self.conv3 = nn.Conv2d(64, 64, 4, stride=2)
-        self.relu3 = ReLU_x(torch.Size([1, 64, 31, 31]), init)
-        self.conv4 = nn.Conv2d(64, 128, 3, stride=1, padding=1)
-        self.relu4 = ReLU_x(torch.Size([1, 128, 31, 31]), init)
-        self.conv5 = nn.Conv2d(128, 128, 3, stride=1, padding=1)
-        self.relu5 = ReLU_x(torch.Size([1, 128, 31, 31]), init)
-        self.conv6 = nn.Conv2d(128, 128, 4, stride=2)
-        self.relu6 = ReLU_x(torch.Size([1, 128, 14, 14]), init)
-        self.conv7 = nn.Conv2d(128, 256, 3, stride=1, padding=1)
-        self.relu7 = ReLU_x(torch.Size([1, 256, 14, 14]), init)
-        self.conv8 = nn.Conv2d(256, 256, 4, stride=2)
-        self.relu8 = ReLU_x(torch.Size([1, 256, 6, 6]), init)
+    def __init__(self, init=1.0, 
+                 power_iter=5, lmbda=1, lc_gamma=0.1, lc_alpha=0.01, lr=1.2, eta=1e-2):
+        super(CIFAR100_8C2F_ReLUx, self).__init__()
+        self.conv1 = Conv2dX(3, 64, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+        self.relu1 = ReLU_x(torch.Size([1, 64, 32, 32]), init)
+        self.conv2 = Conv2dX(64, 64, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+        self.relu2 = ReLU_x(torch.Size([1, 64, 32, 32]), init)
+        self.conv3 = Conv2dX(64, 64, 4, stride=2, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+        self.relu3 = ReLU_x(torch.Size([1, 64, 15, 15]), init)
+        self.conv4 = Conv2dX(64, 128, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+        self.relu4 = ReLU_x(torch.Size([1, 128, 15, 15]), init)
+        self.conv5 = Conv2dX(128, 128, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+        self.relu5 = ReLU_x(torch.Size([1, 128, 15, 15]), init)
+        self.conv6 = Conv2dX(128, 128, 4, stride=2, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+        self.relu6 = ReLU_x(torch.Size([1, 128, 6, 6]), init)
+        self.conv7 = Conv2dX(128, 256, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+        self.relu7 = ReLU_x(torch.Size([1, 256, 6, 6]), init)
+        self.conv8 = Conv2dX(256, 256, 4, stride=2, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+        self.relu8 = ReLU_x(torch.Size([1, 256, 2, 2]), init)
         
         self.flatten = Flatten()
         
-        self.fc1 = nn.Linear(9216, 256)
+        self.fc1 = LinearX(1024, 256, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.relu9 = ReLU_x(torch.Size([1, 256]), init)
-        self.fc2 = nn.Linear(256,200)
-
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-                m.weight.data.normal_(0, math.sqrt(2. / n))
-                m.bias.data.zero_()
+        self.fc2 = LinearX(256, 100, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
 
     def forward(self, x):
         x = self.relu1(self.conv1(x))
@@ -357,39 +629,221 @@ class TinyImageNet_8C2F_ReLUx(nn.Module):
         x = self.fc2(x)
 
         return x 
+        
+    def forward_lip(self, x):
+        x = self.conv1(x)
+        x[x < 0] -= self.conv1.lc
+        x[x > 0] += self.conv1.lc
+        x = self.relu1(x)
+
+        x = self.conv2(x)
+        x[x < 0] -= self.conv2.lc
+        x[x > 0] += self.conv2.lc
+        x = self.relu2(x)
+
+        x = self.conv3(x)
+        x[x < 0] -= self.conv3.lc
+        x[x > 0] += self.conv3.lc
+        x = self.relu3(x)
+
+        x = self.conv4(x)
+        x[x < 0] -= self.conv4.lc
+        x[x > 0] += self.conv4.lc
+        x = self.relu4(x)
+
+        x = self.conv5(x)
+        x[x < 0] -= self.conv5.lc
+        x[x > 0] += self.conv5.lc
+        x = self.relu5(x)
+
+        x = self.conv6(x)
+        x[x < 0] -= self.conv6.lc
+        x[x > 0] += self.conv6.lc
+        x = self.relu6(x)
+
+        x = self.conv7(x)
+        x[x < 0] -= self.conv7.lc
+        x[x > 0] += self.conv7.lc
+        x = self.relu7(x)
+
+        x = self.conv8(x)
+        x[x < 0] -= self.conv8.lc
+        x[x > 0] += self.conv8.lc
+        x = self.relu8(x)
+
+        x = self.flatten(x)
+
+        x = self.fc1(x)
+        x[x < 0] -= self.fc1.lc
+        x[x > 0] += self.fc1.lc
+        x = self.relu9(x)
+
+        x = self.fc2(x)
+
+        return x 
+
+    def lipschitz(self):
+        lc = 1 
+        for layer in self.children():
+            if isinstance(layer, Conv2dX) or isinstance(layer, LinearX):
+                lc *= layer.lipschitz()
+        torch.cuda.empty_cache()
+        return lc
+
+class TinyImageNet_8C2F_ReLUx(nn.Module):
+
+    def __init__(self, init=1.0, 
+                 power_iter=5, lmbda=1, lc_gamma=0.1, lc_alpha=0.01, lr=1.2, eta=1e-2):
+        super(TinyImageNet_8C2F_ReLUx, self).__init__()
+        self.conv1 = Conv2dX(3, 64, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+        self.relu1 = ReLU_x(torch.Size([1, 64, 64, 64]), init)
+        self.conv2 = Conv2dX(64, 64, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+        self.relu2 = ReLU_x(torch.Size([1, 64, 64, 64]), init)
+        self.conv3 = Conv2dX(64, 64, 4, stride=2, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+        self.relu3 = ReLU_x(torch.Size([1, 64, 31, 31]), init)
+        self.conv4 = Conv2dX(64, 128, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+        self.relu4 = ReLU_x(torch.Size([1, 128, 31, 31]), init)
+        self.conv5 = Conv2dX(128, 128, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+        self.relu5 = ReLU_x(torch.Size([1, 128, 31, 31]), init)
+        self.conv6 = Conv2dX(128, 128, 4, stride=2, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+        self.relu6 = ReLU_x(torch.Size([1, 128, 14, 14]), init)
+        self.conv7 = Conv2dX(128, 256, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+        self.relu7 = ReLU_x(torch.Size([1, 256, 14, 14]), init)
+        self.conv8 = Conv2dX(256, 256, 4, stride=2, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+        self.relu8 = ReLU_x(torch.Size([1, 256, 6, 6]), init)
+        
+        self.flatten = Flatten()
+        
+        self.fc1 = LinearX(9216, 256, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+        self.relu9 = ReLU_x(torch.Size([1, 256]), init)
+        self.fc2 = LinearX(256, 200, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+
+    def forward(self, x):
+        x = self.relu1(self.conv1(x))
+        x = self.relu2(self.conv2(x))
+        x = self.relu3(self.conv3(x))
+        x = self.relu4(self.conv4(x))
+        x = self.relu5(self.conv5(x))
+        x = self.relu6(self.conv6(x))
+        x = self.relu7(self.conv7(x))
+        x = self.relu8(self.conv8(x))
+        
+        x = self.flatten(x)
+
+        x = self.relu9(self.fc1(x))
+        x = self.fc2(x)
+
+        return x 
+        
+    def forward_lip(self, x):
+        x = self.conv1(x)
+        x[x < 0] -= self.conv1.lc
+        x[x > 0] += self.conv1.lc
+        x = self.relu1(x)
+
+        x = self.conv2(x)
+        x[x < 0] -= self.conv2.lc
+        x[x > 0] += self.conv2.lc
+        x = self.relu2(x)
+
+        x = self.conv3(x)
+        x[x < 0] -= self.conv3.lc
+        x[x > 0] += self.conv3.lc
+        x = self.relu3(x)
+
+        x = self.conv4(x)
+        x[x < 0] -= self.conv4.lc
+        x[x > 0] += self.conv4.lc
+        x = self.relu4(x)
+
+        x = self.conv5(x)
+        x[x < 0] -= self.conv5.lc
+        x[x > 0] += self.conv5.lc
+        x = self.relu5(x)
+
+        x = self.conv6(x)
+        x[x < 0] -= self.conv6.lc
+        x[x > 0] += self.conv6.lc
+        x = self.relu6(x)
+
+        x = self.conv7(x)
+        x[x < 0] -= self.conv7.lc
+        x[x > 0] += self.conv7.lc
+        x = self.relu7(x)
+
+        x = self.conv8(x)
+        x[x < 0] -= self.conv8.lc
+        x[x > 0] += self.conv8.lc
+        x = self.relu8(x)
+
+        x = self.flatten(x)
+
+        x = self.fc1(x)
+        x[x < 0] -= self.fc1.lc
+        x[x > 0] += self.fc1.lc
+        x = self.relu9(x)
+
+        x = self.fc2(x)
+
+        return x 
+
+    def lipschitz(self):
+        lc = 1 
+        for layer in self.children():
+            if isinstance(layer, Conv2dX) or isinstance(layer, LinearX):
+                lc *= layer.lipschitz()
+        torch.cuda.empty_cache()
+        return lc
+
 
 class TinyImageNet_8C2F_CLMaxMin(nn.Module):
 
-    def __init__(self, init=1.0):
+    def __init__(self, init=1.0, 
+                 power_iter=5, lmbda=1, lc_gamma=0.1, lc_alpha=0.01, lr=1.2, eta=1e-2):
         super(TinyImageNet_8C2F_CLMaxMin, self).__init__()
-        self.conv1 = nn.Conv2d(3, 64, 3, stride=1, padding=1)
+        self.conv1 = Conv2dX(3, 64, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.clamp1 = ClampGroupSort(torch.Size([1, 32, 64, 64]), 0.4*2, -0.4*2)
-        self.conv2 = nn.Conv2d(64, 64, 3, stride=1, padding=1)
+        self.conv2 = Conv2dX(64, 64, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.clamp2 = ClampGroupSort(torch.Size([1, 32, 64, 64]), 0.5*2, -0.5*2)
-        self.conv3 = nn.Conv2d(64, 64, 4, stride=2)
+        self.conv3 = Conv2dX(64, 64, 4, stride=2, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.clamp3 = ClampGroupSort(torch.Size([1, 32, 31, 31]), 0.7*2, -0.7*2)
-        self.conv4 = nn.Conv2d(64, 128, 3, stride=1, padding=1)
+        self.conv4 = Conv2dX(64, 128, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.clamp4 = ClampGroupSort(torch.Size([1, 64, 31, 31]), 0.7*2, -0.7*2)
-        self.conv5 = nn.Conv2d(128, 128, 3, stride=1, padding=1)
+        self.conv5 = Conv2dX(128, 128, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.clamp5 = ClampGroupSort(torch.Size([1, 64, 31, 31]), 0.7*2, -0.7*2)
-        self.conv6 = nn.Conv2d(128, 128, 4, stride=2)
+        self.conv6 = Conv2dX(128, 128, 4, stride=2, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.clamp6 = ClampGroupSort(torch.Size([1, 64, 14, 14]), 0.8*2, -0.8*2)
-        self.conv7 = nn.Conv2d(128, 256, 3, stride=1, padding=1)
+        self.conv7 = Conv2dX(128, 256, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.clamp7 = ClampGroupSort(torch.Size([1, 128, 14, 14]), 1.0*2, -1.0*2)
-        self.conv8 = nn.Conv2d(256, 256, 4, stride=2)
+        self.conv8 = Conv2dX(256, 256, 4, stride=2, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.clamp8 = ClampGroupSort(torch.Size([1, 128, 6, 6]), 1.5*2, -1.5*2)
         
         self.flatten = Flatten()
         
-        self.fc1 = nn.Linear(9216, 256)
+        self.fc1 = LinearX(9216, 256, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
         self.clamp9 = ClampGroupSort(torch.Size([1, 128]), 0.8*2, -0.8*2)
-        self.fc2 = nn.Linear(256,200)
+        self.fc2 = LinearX(256, 200, power_iter=power_iter, lmbda=lmbda, 
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
 
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-                m.weight.data.normal_(0, math.sqrt(2. / n))
-                m.bias.data.zero_()
 
     def forward(self, x):
         x = self.clamp1(self.conv1(x))
@@ -408,6 +862,14 @@ class TinyImageNet_8C2F_CLMaxMin(nn.Module):
 
         return x 
 
+    def lipschitz(self):
+        lc = 1 
+        for layer in self.children():
+            if isinstance(layer, Conv2dX) or isinstance(layer, LinearX):
+                lc *= layer.lipschitz()
+        torch.cuda.empty_cache()
+        return lc
+
 # model = MNIST_4C3F_ReLUx()
 # inp = torch.randn(2, 1, 28, 28)
 # out = model(inp)
@@ -423,20 +885,20 @@ class TinyImageNet_8C2F_CLMaxMin(nn.Module):
 # out = model(inp)
 # print ("CIFAR10_4C3F_ReLUx", sum(p.numel() for p in model.parameters()))
 
-# model = CIFAR10_C6F2_ReLUx()
+# model = CIFAR10_6C2F_ReLUx()
 # inp = torch.randn(2, 3, 32, 32)
 # out = model(inp)
-# print ("CIFAR10_C6F2_ReLUx", sum(p.numel() for p in model.parameters()))
+# print ("CIFAR10_6C2F_ReLUx", sum(p.numel() for p in model.parameters()))
 
-# model = CIFAR10_C6F2_CLMaxMin()
+# model = CIFAR10_6C2F_CLMaxMin()
 # inp = torch.randn(2, 3, 32, 32)
 # out = model(inp)
-# print ("CIFAR10_C6F2_CLMaxMin", sum(p.numel() for p in model.parameters()))
+# print ("CIFAR10_6C2F_CLMaxMin", sum(p.numel() for p in model.parameters()))
 
-# model = CIFAR10_C6F2_ReLU()
+# model = CIFAR10_6C2F_ReLU()
 # inp = torch.randn(2, 3, 32, 32)
 # out = model(inp)
-# print ("CIFAR10_C6F2_ReLU", sum(p.numel() for p in model.parameters()))
+# print ("CIFAR10_6C2F_ReLU", sum(p.numel() for p in model.parameters()))
 
 # model = TinyImageNet_8C2F_ReLUx()
 # inp = torch.randn(2, 3, 64, 64)

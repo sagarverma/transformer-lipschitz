@@ -10,7 +10,7 @@ import torch.nn.functional as F
 import torch.optim as optim 
 from torchvision import datasets, transforms
 
-from liptrf.models.moderate import CIFAR10_C6F2_ReLU
+from liptrf.models.moderate import CIFAR10_4C3F_ReLUx, CIFAR100_6C2F_ReLUx
 
 
 def train(args, model, device, train_loader,
@@ -91,6 +91,7 @@ def main():
                         help='Number of cores to use')
     parser.add_argument('--cos', action='store_false', 
                         help='Train with cosine annealing scheduling')
+    parser.add_argument('--model', type=str, default='4c3f_relux')
 
     parser.add_argument('--gpu', type=int, default=0,
                         help='gpu to use')
@@ -133,7 +134,11 @@ def main():
     classes = ('plane', 'car', 'bird', 'cat', 'deer',
             'dog', 'frog', 'horse', 'ship', 'truck')
 
-    model = CIFAR10_C6F2_ReLU().cuda()
+    if args.model == '4c3f_relux':
+        model = CIFAR10_4C3F_ReLUx(lmbda=args.lmbda).to(device)
+    elif args.model == '6c2f_relux':
+        model = CIFAR100_6C2F_ReLUx(lmbda=args.lmbda).to(device)
+
     criterion = nn.CrossEntropyLoss()
     if args.opt == 'adam': 
         optimizer = optim.Adam(model.parameters(), lr=args.lr)
@@ -152,9 +157,9 @@ def main():
 
     if args.task == 'train':
         if not args.relax:
-            weight_path = os.path.join(args.weight_path, f"CIFAR10_C6F2_ReLU_seed-{args.seed}")
+            weight_path = os.path.join(args.weight_path, f"CIFAR10_{args.model}_seed-{args.seed}")
         else:
-            weight_path = os.path.join(args.weight_path, f"CIFAR10_C6F2_ReLU_seed-{args.seed}_relax-{args.lmbda}_warmup-{args.warmup}")
+            weight_path = os.path.join(args.weight_path, f"CIFAR10_{args.model}_seed-{args.seed}_relax-{args.lmbda}_warmup-{args.warmup}")
         weight_path += f".pt"
 
         fout = open(weight_path.replace('.pt', '.csv').replace('weights', 'logs'), 'w')

@@ -10,12 +10,11 @@ import torch.nn.functional as F
 import torch.optim as optim 
 from torchvision import datasets, transforms
 
-from liptrf.models.linear_toy import Net
 from liptrf.models.vit import ViT
 
 
 def train(args, model, device, train_loader,
-          optimizer, epoch, criterion, finetune=False):
+          optimizer, epoch, criterion):
     model.train()
     train_loss = 0
     correct = 0
@@ -29,11 +28,6 @@ def train(args, model, device, train_loader,
         pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log_probability
         correct += pred.eq(target.view_as(pred)).sum().item()
         optimizer.step()
-
-        with torch.no_grad():
-            if args.relax and epoch > args.warmup:
-                model.lipschitz()
-                model.apply_spec()
         torch.cuda.empty_cache()
 
     train_loss /= len(train_loader.dataset)
@@ -79,6 +73,11 @@ def main():
     parser.add_argument('--layers', type=int, default=1)
     parser.add_argument('--relax', action='store_true')
     parser.add_argument('--lmbda', type=float, default=1.)
+    parser.add_argument('--power_iter', type=int, default=10)
+    parser.add_argument('--lc_gamma', type=float, default=0.1)
+    parser.add_argument('--lc_alpha', type=float, default=0.1)
+    parser.add_argument('--prox_lr', type=float, default=1.2)
+    parser.add_argument('--eta', type=float, default=0.1)
     parser.add_argument('--warmup', type=int, default=0)
     parser.add_argument('--attention_type', type=str, default='L2',
                         help='L2/DP')
@@ -93,8 +92,7 @@ def main():
                         help='adam/sgd')
     parser.add_argument('--num_workers', type=int, default=4,
                         help='Number of cores to use')
-    parser.add_argument('--model', type=str, default='linear')
-
+    
     parser.add_argument('--gpu', type=int, default=0,
                         help='gpu to use')
     parser.add_argument('--seed', type=int, default=2, metavar='S',
@@ -123,14 +121,14 @@ def main():
     test_loader = torch.utils.data.DataLoader(dataset2, batch_size=args.batch_size, 
                                                 num_workers=args.num_workers, shuffle=False)
 
-    if args.model == 'linear':
-        model = Net(lmbda=args.lmbda).to(device)
-        args.layers = 3 
-    if args.model == 'vit':
-        model = ViT(image_size=28, patch_size=7, num_classes=10, channels=1,
-            dim=128, depth=args.layers, heads=8, mlp_ratio=4, attention_type=args.attention_type, 
-            lmbda=args.lmbda, device=device).to(device)
+
+    model = ViT(image_size=28, patch_size=7, num_classes=10, channels=1,
+        dim=128, depth=args.layers, heads=8, mlp_ratio=4, attention_type=args.attention_type, 
+        power_iter=args.power_iter, lmbda=args.lmbda, 
+         lc_gamma=args.lc_gamma, lc_alpha=args.lc_alpha, 
+         lr=args.prox_lr, eta=args.eta, device=device).to(device)
     print (model)
+    print (sum(p.numel() for p in model.parameters()))
     criterion = nn.CrossEntropyLoss()
     if args.opt == 'adam': 
         optimizer = optim.Adam(model.parameters(), lr=args.lr)
@@ -145,14 +143,11 @@ def main():
 
     if args.task == 'train':
         if not args.relax:
-            weight_path = os.path.join(args.weight_path, f"{args.model}_mnist_seed-{args.seed}_layers-{args.layers}")
+            weight_path = os.path.join(args.weight_path, f"ViT_mnist_seed-{args.seed}_layers-{args.layers}")
         else:
-            weight_path = os.path.join(args.weight_path, f"{args.model}_mnist_seed-{args.seed}_layers-{args.layers}_relax-{args.lmbda}_warmup-{args.warmup}")
-        if args.model == 'vit':
-            weight_path += f"_att-{args.attention_type}.pt"
-        else:
-            weight_path += f".pt"
-
+            weight_path = os.path.join(args.weight_path, f"ViT_mnist_seed-{args.seed}_layers-{args.layers}_relax-{args.lmbda}_warmup-{args.warmup}")
+        weight_path += f"_att-{args.attention_type}.pt"
+        
         fout = open(weight_path.replace('.pt', '.csv').replace('weights', 'logs'), 'w')
         w = csv.writer(fout)
 
@@ -162,7 +157,7 @@ def main():
         best_acc = -1
         for epoch in range(1, args.epochs + 1):
             train(args, model, device, train_loader,
-                  optimizer, epoch, criterion, False)
+                  optimizer, epoch, criterion)
             acc, loss, lip = test(args, model, device, test_loader, criterion)
             w.writerow([epoch, acc, loss, lip])
             scheduler.step()

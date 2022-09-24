@@ -30,7 +30,7 @@ class LinearX(nn.Module):
         self.lr = lr
         self.prox_done = False 
         self.proj_done = False
-        print (self.power_iter)
+        # print (self.power_iter)
 
         nn.init.orthogonal_(self.weight)
 

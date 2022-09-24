@@ -149,7 +149,7 @@ def main():
                                                         patience=3, verbose=True, 
                                                         min_lr=1e-3*1e-5, factor=0.1)
     else:
-        scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_MAX=args.epochs, 
+        scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs, 
                                                          eta_min=1e-5)
 
     if args.task == 'train':

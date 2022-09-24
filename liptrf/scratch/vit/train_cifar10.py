@@ -11,7 +11,6 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 
 from liptrf.models.vit import ViT
-from liptrf.models.layers.layers import LinearX, trunc
 
 
 def train(args, model, device, train_loader,
@@ -79,6 +78,7 @@ def main():
     parser.add_argument('--layers', type=int, default=1)
     parser.add_argument('--relax', action='store_true')
     parser.add_argument('--lmbda', type=float, default=1.)
+    parser.add_argument('--power_iter', type=int, default=10)
     parser.add_argument('--warmup', type=int, default=0)
     parser.add_argument('--attention_type', type=str, default='L2',
                         help='L2/DP')
@@ -95,6 +95,7 @@ def main():
                         help='Number of cores to use')
     parser.add_argument('--cos', action='store_false', 
                         help='Train with cosine annealing scheduling')
+    parser.add_argument('--model', type=str, default='vit')
 
     parser.add_argument('--gpu', type=int, default=0,
                         help='gpu to use')
@@ -138,8 +139,10 @@ def main():
             'dog', 'frog', 'horse', 'ship', 'truck')
 
     model = ViT(image_size=32, patch_size=4, num_classes=10, channels=3,
-        dim=192, depth=args.layers, heads=3, mlp_ratio=4, attention_type=args.attention_type, 
-        dropout=0.1, lmbda=args.lmbda, device=device).to(device)
+                dim=192, depth=args.layers, heads=3, mlp_ratio=4, 
+                attention_type=args.attention_type, 
+                dropout=0.1, lmbda=args.lmbda, power_iter=args.power_iter,
+                device=device).to(device)
     criterion = nn.CrossEntropyLoss()
     if args.opt == 'adam': 
         optimizer = optim.Adam(model.parameters(), lr=args.lr)
@@ -158,9 +161,9 @@ def main():
 
     if args.task == 'train':
         if not args.relax:
-            weight_path = os.path.join(args.weight_path, f"vit_cifar10_seed-{args.seed}_layers-{args.layers}")
+            weight_path = os.path.join(args.weight_path, f"CIFAR10_{args.model}_seed-{args.seed}_layers-{args.layers}")
         else:
-            weight_path = os.path.join(args.weight_path, f"vit_cifar10_seed-{args.seed}_layers-{args.layers}_relax-{args.lmbda}_warmup-{args.warmup}")
+            weight_path = os.path.join(args.weight_path, f"CIFAR10_{args.model}_seed-{args.seed}_layers-{args.layers}_relax-{args.lmbda}_warmup-{args.warmup}")
         weight_path += f"_att-{args.attention_type}.pt"
 
         fout = open(weight_path.replace('.pt', '.csv').replace('weights', 'logs'), 'w')

@@ -10,7 +10,7 @@ import torch.nn.functional as F
 import torch.optim as optim 
 from torchvision import datasets, transforms
 
-from liptrf.models.moderate import CIFAR10_4C3F_ReLUx, CIFAR100_6C2F_ReLUx
+from liptrf.models.moderate import CIFAR100_6C2F_ReLUx, CIFAR100_8C2F_ReLUx
 
 
 def train(args, model, device, train_loader,
@@ -71,7 +71,7 @@ def test(args, model, device, test_loader, criterion):
 
 def main():
     # Training settings
-    parser = argparse.ArgumentParser(description='PyTorch CIFAR10 ViT')
+    parser = argparse.ArgumentParser(description='PyTorch CIFAR100')
     parser.add_argument('--task', type=str, default='train',
                         help='train/retrain/extract/test')
 
@@ -91,7 +91,7 @@ def main():
                         help='Number of cores to use')
     parser.add_argument('--cos', action='store_false', 
                         help='Train with cosine annealing scheduling')
-    parser.add_argument('--model', type=str, default='4c3f_relux')
+    parser.add_argument('--model', type=str, default='6c2f_relux')
 
     parser.add_argument('--gpu', type=int, default=0,
                         help='gpu to use')
@@ -99,9 +99,9 @@ def main():
                         help='random seed (default: 1)')
 
     parser.add_argument('--data_path', type=str, required=True,
-                        help='data path of CIFAR10')
+                        help='data path of CIFAR100')
     parser.add_argument('--weight_path', type=str, required=True,
-                        help='weight path of CIFAR10')
+                        help='weight path of CIFAR100')
 
     args = parser.parse_args()
 
@@ -113,35 +113,33 @@ def main():
         transforms.RandomCrop(32, padding=4),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
-        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+        transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761)),
     ])
 
     transform_test = transforms.Compose([
         transforms.ToTensor(),
-        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+        transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761)),
     ])
 
-    trainset = datasets.CIFAR10(
+    trainset = datasets.CIFAR100(
         root=args.data_path, train=True, download=True, transform=transform_train)
     train_loader = torch.utils.data.DataLoader(
         trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
 
-    testset = datasets.CIFAR10(
+    testset = datasets.CIFAR100(
         root=args.data_path, train=False, download=True, transform=transform_test)
     test_loader = torch.utils.data.DataLoader(
         testset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
 
-    classes = ('plane', 'car', 'bird', 'cat', 'deer',
-            'dog', 'frog', 'horse', 'ship', 'truck')
-
-    if args.model == '4c3f_relux':
-        model = CIFAR10_4C3F_ReLUx(lmbda=args.lmbda).to(device)
-    elif args.model == '6c2f_relux':
+    if args.model == '6c2f_relux':
         model = CIFAR100_6C2F_ReLUx(lmbda=args.lmbda).to(device)
+    elif args.model == '8c2f_relux':
+        model = CIFAR100_8C2F_ReLUx(lmbda=args.lmbda).to(device)
 
     criterion = nn.CrossEntropyLoss()
     if args.opt == 'adam': 
-        optimizer = optim.Adam(model.parameters(), lr=args.lr)
+        optimizer = optim.Adam(model.parameters(), lr=args.lr,
+                               betas=(0.9, 0.999), weight_decay=5e-5)
     elif args.opt == 'sgd': 
         optimizer = optim.SGD(model.parameters(), lr=args.lr, 
                         momentum=0.9,
@@ -157,9 +155,9 @@ def main():
 
     if args.task == 'train':
         if not args.relax:
-            weight_path = os.path.join(args.weight_path, f"CIFAR10_{args.model}_seed-{args.seed}")
+            weight_path = os.path.join(args.weight_path, f"CIFAR100_{args.model}_seed-{args.seed}")
         else:
-            weight_path = os.path.join(args.weight_path, f"CIFAR10_{args.model}_seed-{args.seed}_relax-{args.lmbda}_warmup-{args.warmup}")
+            weight_path = os.path.join(args.weight_path, f"CIFAR100_{args.model}_seed-{args.seed}_relax-{args.lmbda}_warmup-{args.warmup}")
         weight_path += f".pt"
 
         fout = open(weight_path.replace('.pt', '.csv').replace('weights', 'logs'), 'w')
@@ -189,10 +187,6 @@ def main():
     if args.task == 'test':
         weight = torch.load(args.weight_path, map_location=device)
         model.load_state_dict(weight, strict=False)
-        # for layer in model.modules():
-        #     if isinstance(layer, LinearX):
-        #         layer.rand_x = nn.Parameter(trunc(layer.rand_x.shape))
-        model = model.to(device)
         test(args, model, device, test_loader, criterion)
 
 if __name__ == '__main__':

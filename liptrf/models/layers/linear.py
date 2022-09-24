@@ -44,7 +44,7 @@ class LinearX(nn.Module):
         return F.linear(x, self.weight, self.bias)
 
     def lipschitz(self):
-        rand_x = trunc(self.input).cuda()
+        rand_x = trunc(self.input).type_as(self.weight)
         for _ in range(self.power_iter):
             x = l2_normalize(rand_x)
             x_p = F.linear(x, self.weight) 

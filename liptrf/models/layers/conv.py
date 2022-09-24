@@ -50,7 +50,7 @@ class Conv2dX(nn.Module):
                         stride=self.stride, padding=self.padding)
 
     def lipschitz(self):
-        rand_x = trunc((1, self.in_channels, 32, 32)).cuda()
+        rand_x = trunc((1, self.in_channels, 32, 32)).type_as(self.weight)
         for _ in range(self.power_iter):
             x = l2_normalize(rand_x)
             x_p = F.conv2d(x, self.weight, 

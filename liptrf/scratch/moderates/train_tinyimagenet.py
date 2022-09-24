@@ -29,11 +29,7 @@ def train(args, model, device, train_loader,
         pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log_probability
         correct += pred.eq(target.view_as(pred)).sum().item()
         optimizer.step()
-
-        with torch.no_grad():
-            if args.relax and epoch > args.warmup:
-                model.lipschitz()
-                model.apply_spec()
+        
         torch.cuda.empty_cache()
 
     train_loss /= len(train_loader.dataset)

@@ -24,7 +24,6 @@ import torchvision.datasets as datasets
 import webdataset as wds
 
 from liptrf.models.vit import ViT
-from liptrf.utils.evaluate import evaluate_pgd, vra
 
 
 fin = open('./imagenet-sample-images/imagenet_class_index.json', 'r')

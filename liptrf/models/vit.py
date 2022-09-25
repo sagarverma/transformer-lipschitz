@@ -93,6 +93,7 @@ class L2Attention(nn.Module):
         self.dim = dim 
         self.n_value = n_value
         self.heads = heads
+        self.lc = 1
 
         dim_head = dim //  heads
         self.scale = dim_head ** -0.5
@@ -134,8 +135,9 @@ class L2Attention(nn.Module):
         v1 = np.sqrt(N / (D / H))
         v2 = 4 * lambertw(N / np.exp(1)).real + 1
         v3 = torch.sqrt(self.to_q.lipschitz() + self.to_v.lipschitz()) * self.to_out.lipschitz()
-        return v1 * v2 * v3
-
+        self.lc = v1 * v2 * v3
+        return self.lc
+    
     def apply_spec(self):
         for layer in self.children():
             if isinstance(layer, LinearX):

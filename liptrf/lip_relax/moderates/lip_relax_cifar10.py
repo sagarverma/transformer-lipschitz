@@ -10,7 +10,7 @@ import torch.nn.functional as F
 import torch.optim as optim 
 from torchvision import datasets, transforms
 
-from liptrf.models.moderate import CIFAR10_C6F2_ReLU
+from liptrf.models.moderate import CIFAR10_4C3F_ReLUx, CIFAR10_6C2F_ReLUx
 from liptrf.models.layers.linear import LinearX
 from liptrf.models.layers.conv import Conv2dX
 
@@ -50,24 +50,25 @@ def train(args, model, device, train_loader,
           f"Error: {(train_samples-correct)/train_samples * 100:.2f}%")
 
 def test(args, model, device, test_loader, criterion):
-    # model.eval()
+    model.eval()
     test_loss = 0
     correct = 0
     
-    lip = model.lipschitz().item()
+    lip = model.lipschitz()
     verified = 0
 
     # with torch.no_grad():
     for data, target in test_loader:
         data, target = data.to(device), target.to(device)
-        output = model(data)
+        output = model.forward(data)
         
         test_loss += criterion(output, target).item()  # sum up batch loss
         pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log_probability
         correct += pred.eq(target.view_as(pred)).sum().item()
 
+        # print (output.max())
         one_hot = F.one_hot(target, num_classes=output.shape[-1])
-        worst_logit = output + lip * (1 - one_hot)
+        worst_logit = output + 2**0.5 * 1.58 * lip * (1 - one_hot)
         worst_pred = worst_logit.argmax(dim=1, keepdim=True)
         verified += worst_pred.eq(target.view_as(worst_pred)).sum().item()
 
@@ -80,54 +81,64 @@ def test(args, model, device, test_loader, criterion):
     
     print(f"Test set: Average loss: {test_loss:.4f}, " +
           f"Accuracy: {correct}/{test_samples} " + 
-          f"({100.*correct/test_samples:.0f}%), " +
-          f"Verified: {100.*verified/test_samples:.0f}%, " +
+          f"({100.*correct/test_samples:.2f}%), " +
+          f"Verified: {100.*verified/test_samples:.2f}%, " +
           f"Error: {(test_samples-correct)/test_samples * 100:.2f}% " +
           f"Lipschitz {lip:4f}")
-    return 100.*correct/test_samples
+    
+    return 100.*correct/test_samples, 100.*verified/test_samples, lip
 
 def process_layers(layers, model, train_loader, test_loader, 
                     criterion, optimizer, args, device):
-    for lipr_epoch in range(args.lipr_epochs):
-        for layer in layers:
-            layer.weight_t = layer.weight.clone().detach()
-            if isinstance(layer, Conv2dX):
-                layer.weight_t = layer.weight_t.view(layer.weight_t.size(0), -1)
-            layer.prox()
 
-            for proj_epoch in tqdm.tqdm(range(args.proj_epochs)):
-                layer.proj_weight_old = layer.proj_weight.clone().detach()
+    for layer in layers:
+        layer.weight_t = layer.weight.clone().detach()
+        if isinstance(layer, Conv2dX):
+            layer.weight_t = layer.weight_t.view(layer.weight_t.size(0), -1)
+        
+        for lipr_epoch in range(args.lipr_epochs):
+            layer.prox()
+        
+            # for proj_epoch in tqdm.tqdm(range(args.proj_epochs)):
+            layer.proj_weight_old = layer.proj_weight.clone().detach()
                 
-                for batch_idx, (data, target) in enumerate(train_loader):
-                    _ = model(data.to(device))
-                    layer.proj()
-                    break
-                    
-                if torch.linalg.norm(layer.proj_weight - layer.proj_weight_old) < args.proj_prec * torch.linalg.norm(layer.proj_weight):
-                    break 
+            for batch_idx, (data, target) in tqdm.tqdm(enumerate(train_loader)):
+                _ = model(data.to(device))
+                layer.proj()
+                
+                # print (torch.linalg.norm(layer.proj_weight - layer.proj_weight_old, 'fro'), args.proj_prec * torch.linalg.norm(layer.proj_weight, 'fro'))
+                # if torch.linalg.norm(layer.proj_weight - layer.proj_weight_old) < args.proj_prec * torch.linalg.norm(layer.proj_weight):
+                #     break 
 
             layer.update()
-
-            if torch.linalg.norm(layer.weight_t - layer.weight_old) < args.lipr_prec * torch.norm(layer.weight_t):
-                break
-        
+            # if torch.linalg.norm(layer.weight_t - layer.weight_old) < args.lipr_prec * torch.norm(layer.weight_t):
+            #     break
+            
             params = layer.prox_weight.reshape(layer.weight.shape)
-            # params[torch.abs(params) < 1e-7] = 0
             layer.weight = nn.Parameter(params)
-
-        test(args, model, device, test_loader, criterion)
-        print_nonzeros(model)
-
-        for epoch in range(1, args.epochs + 1):
-            train(args, model, device, train_loader,
-                    optimizer, epoch, criterion, False)
+            print (layer.lipschitz())
             test(args, model, device, test_loader, criterion)
-            print_nonzeros(model)
+            if layer.lipschitz() <= 1. or model.lipschitz() <= 1.:
+                break
+        if model.lipschitz() <= 1.:
+            break
 
-        # params = layer.prox_weight.reshape(layer.weight.shape)
-        # params[torch.abs(params) < layer.lc_gamma] = 0
-        # layer.weight = nn.Parameter(params)
-        layer.free()
+    test(args, model, device, test_loader, criterion)
+    print_nonzeros(model)
+
+    verified_best = -1
+    for epoch in range(1, args.epochs + 1):
+        train(args, model, device, train_loader,
+                optimizer, epoch, criterion, True)
+        clean, verified, lip = test(args, model, device, test_loader, criterion)
+        print_nonzeros(model)
+        if verified >= verified_best:
+            verified_best = verified
+            pgd = evaluate_pgd(test_loader, model, epsilon=1.58, niter=100, alpha=1.58/4)
+            weight_path = args.weight_path.replace('.pt', f"_lc_alpha-{args.lc_alpha}_eta-{args.eta}_lc_gamma-{args.lc_gamma}_lr-{args.lr}.pt")
+            out_dict = {"weights": model.state_dict(), "clean": clean, "lip": lip, "pgd": pgd, "verified": verified}
+
+            torch.save(out_dict, weight_path)
 
 def print_nonzeros(model):
     nonzero = total = 0 
@@ -161,7 +172,7 @@ def main():
     parser.add_argument('--epochs', default=10, type=int)
 
     parser.add_argument('--data', default='cifar10', type=str)
-    parser.add_argument('--model', default='standrelu', type=str)
+    parser.add_argument('--model', default='4c3f_relux', type=str)
     parser.add_argument('--opt', default='adam', type=str)
     parser.add_argument('--task', default='train', type=str)
     
@@ -210,7 +221,10 @@ def main():
     test_loader = torch.utils.data.DataLoader(
         testset, batch_size=args.test_batch_size, shuffle=False, num_workers=args.num_workers)
 
-    model =  CIFAR10_C6F2_ReLU(power_iter=args.power_iter, lmbda=1, lc_gamma=args.lc_gamma, lc_alpha=args.lc_alpha, lr=args.lr, eta=args.eta)
+    if args.model == '4c3f_relux':
+        model = CIFAR10_4C3F_ReLUx(lmbda=args.lmbda).to(device)
+    elif args.model == '6c2f_relux':
+        model = CIFAR10_6C2F_ReLUx(lmbda=args.lmbda).to(device)
     weight = torch.load(args.weight_path)
     model.load_state_dict(weight, strict=False)
     model = model.to(device)

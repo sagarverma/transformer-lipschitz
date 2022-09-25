@@ -27,6 +27,8 @@ def evaluate_pgd(loader, model, epsilon, niter, alpha):
         accs.append(acc.data.cpu().item())
     print(f'PGD Accuracy {np.mean(accs) * 100:.2f}')
 
+    return np.mean(accs) * 100
+
 
 def vra_sparse(y_true, y_pred):
     labels = y_true[:,0]

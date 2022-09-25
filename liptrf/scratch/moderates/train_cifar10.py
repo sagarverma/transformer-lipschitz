@@ -10,7 +10,7 @@ import torch.nn.functional as F
 import torch.optim as optim 
 from torchvision import datasets, transforms
 
-from liptrf.models.moderate import CIFAR10_4C3F_ReLUx, CIFAR100_6C2F_ReLUx
+from liptrf.models.moderate import CIFAR10_4C3F_ReLUx, CIFAR10_6C2F_ReLUx
 
 
 def train(args, model, device, train_loader,
@@ -137,7 +137,7 @@ def main():
     if args.model == '4c3f_relux':
         model = CIFAR10_4C3F_ReLUx(lmbda=args.lmbda).to(device)
     elif args.model == '6c2f_relux':
-        model = CIFAR100_6C2F_ReLUx(lmbda=args.lmbda).to(device)
+        model = CIFAR10_6C2F_ReLUx(lmbda=args.lmbda).to(device)
 
     criterion = nn.CrossEntropyLoss()
     if args.opt == 'adam': 

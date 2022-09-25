@@ -66,7 +66,7 @@ class LinearX(nn.Module):
         self.weight_old = self.weight_t#.clone().detach()
         # soft thersholding (L1Norm prox)
         wt = torch.abs(self.weight_t) - self.lc_gamma
-        wt[wt > 0] += self.lc_alpha
+        # wt[wt > 0] += self.lc_alpha
         self.prox_weight = (wt * (wt > 0)) * torch.sign(self.weight_t)
         
         # prox lip
@@ -90,9 +90,15 @@ class LinearX(nn.Module):
             #     dW += (z[k, :].unsqueeze(1) @ self.inp[k, :].unsqueeze(0))
             # dW /= self.out.shape[0]
             # dW *= 2
-            dW = 2 * torch.mean(torch.einsum("bi,bj->bij", z, self.inp), dim=0)
+            if len(self.inp.shape) == 3:
+                dW = 2 * torch.mean(torch.einsum("bki,bkj->bij", z, self.inp), dim=0)
+            else:
+                dW = 2 * torch.mean(torch.einsum("bi,bj->bij", z, self.inp), dim=0)
             dW = -fc * dW / torch.linalg.norm(dW)**2
 
+        L = torch.sum(dW**2)
+
+        if L > 2.2204e-16:
             cW = self.proj_weight_0 - self.proj_weight
             # print (f"Norm cW: {torch.linalg.norm(cW)}")
             
@@ -126,8 +132,8 @@ class LinearX(nn.Module):
 
     def update(self):
         # print (f"Norm weight_t {torch.linalg.norm(self.weight_t)} " +
-                # f"Norm proj_weight {torch.linalg.norm(self.proj_weight)} " +
-                # f"Norm prox weight {torch.linalg.norm(self.prox_weight)}")
+        #         f"Norm proj_weight {torch.linalg.norm(self.proj_weight)} " +
+        #         f"Norm prox weight {torch.linalg.norm(self.prox_weight)}")
         self.weight_t = (self.weight_t + self.lr * (self.proj_weight - self.prox_weight))#.clone().detach()
         # print (f"Norm weight_t {torch.linalg.norm(self.weight_t)}")
 
@@ -173,7 +179,7 @@ class LinearX(nn.Module):
 # print (i, loss.item(), model.lipschitz())
 
 
-# model = LinearX(32, 32, power_iter=10, lmbda=1, lc_gamma=1.2, lr=1.5, eta=1e-2).cuda()
+# model = LinearX(32, 32, power_iter=10, lmbda=1, lc_gamma=0.01, lr=1.5, eta=1e-2).cuda()
 # optim = torch.optim.SGD(model.parameters(), lr=0.1)
 
 # for i in range(100):
@@ -183,6 +189,7 @@ class LinearX(nn.Module):
 #     loss.backward()
 #     optim.step()
 
+# print (pred.max())
 # print (i, loss.item(), model.lipschitz())
 
 # model.eval()
@@ -196,17 +203,19 @@ class LinearX(nn.Module):
 #     for j in range(1000):
 #         # print (f"Prox epoch {i} Proj Epoch {j}")
 #         model.proj_weight_old = model.proj_weight#.clone().detach()
-#         # for b in range(8):
-#         pred = model(inp[:8, :])
-#         model.proj()
+#         for b in range(8):
+#             pred = model(inp[:8, :])
+#             if j == 1:
+#                 print (pred.max())
+#             model.proj()
 #         if torch.linalg.norm(model.proj_weight - model.proj_weight_old) < 1e-9 * torch.linalg.norm(model.proj_weight):
-#             # print ('convergence')
+#             print ('convergence')
 #             break 
     
 #     model.update()
 
 #     if torch.linalg.norm(model.weight_t - model.weight_old) < 1e-7 * torch.norm(model.weight_t):
-#         # print ("prox conv")
+#         print ("prox conv")
 #         break
 
 # model.weight = nn.Parameter(model.prox_weight)

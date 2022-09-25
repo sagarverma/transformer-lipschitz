@@ -28,7 +28,7 @@ def train(args, model, device, train_loader,
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
-        output = model.forward_lip(data)
+        output = model.forward(data)
         loss = criterion(output, target)
         loss.backward()
         train_loss += loss.item()
@@ -52,7 +52,7 @@ def train(args, model, device, train_loader,
           f"Error: {(train_samples-correct)/train_samples * 100:.2f}%")
 
 def test(args, model, device, test_loader, criterion):
-    # model.eval()
+    model.eval()
     test_loss = 0
     correct = 0
     
@@ -62,7 +62,7 @@ def test(args, model, device, test_loader, criterion):
     # with torch.no_grad():
     for data, target in test_loader:
         data, target = data.to(device), target.to(device)
-        output = model.forward_lip(data)
+        output = model.forward(data)
         
         test_loss += criterion(output, target).item()  # sum up batch loss
         pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log_probability
@@ -83,63 +83,64 @@ def test(args, model, device, test_loader, criterion):
     
     print(f"Test set: Average loss: {test_loss:.4f}, " +
           f"Accuracy: {correct}/{test_samples} " + 
-          f"({100.*correct/test_samples:.0f}%), " +
-          f"Verified: {100.*verified/test_samples:.0f}%, " +
+          f"({100.*correct/test_samples:.2f}%), " +
+          f"Verified: {100.*verified/test_samples:.2f}%, " +
           f"Error: {(test_samples-correct)/test_samples * 100:.2f}% " +
-          f"Lipschitz {model.lipschitz():4f}")
+          f"Lipschitz {lip:4f}")
     
-    return 100.*verified/test_samples
+    return 100.*correct/test_samples, 100.*verified/test_samples, lip
 
 def process_layers(layers, model, train_loader, test_loader, 
                     criterion, optimizer, args, device):
 
-    best_verified = -1
-    for lipr_epoch in range(args.lipr_epochs):
-        for layer in layers:
-            layer.weight_t = layer.weight.clone().detach()
-            if isinstance(layer, Conv2dX):
-                layer.weight_t = layer.weight_t.view(layer.weight_t.size(0), -1)
+    for layer in layers:
+        layer.weight_t = layer.weight.clone().detach()
+        if isinstance(layer, Conv2dX):
+            layer.weight_t = layer.weight_t.view(layer.weight_t.size(0), -1)
+        
+        for lipr_epoch in range(args.lipr_epochs):
             layer.prox()
-
-            for proj_epoch in tqdm.tqdm(range(args.proj_epochs)):
-                layer.proj_weight_old = layer.proj_weight.clone().detach()
+        
+            # for proj_epoch in tqdm.tqdm(range(args.proj_epochs)):
+            layer.proj_weight_old = layer.proj_weight.clone().detach()
                 
-                for batch_idx, (data, target) in enumerate(train_loader):
-                    _ = model(data.to(device))
-                    layer.proj()
-                    break
-                    
+            for batch_idx, (data, target) in tqdm.tqdm(enumerate(train_loader)):
+                _ = model(data.to(device))
+                layer.proj()
+                
+                # print (torch.linalg.norm(layer.proj_weight - layer.proj_weight_old, 'fro'), args.proj_prec * torch.linalg.norm(layer.proj_weight, 'fro'))
                 # if torch.linalg.norm(layer.proj_weight - layer.proj_weight_old) < args.proj_prec * torch.linalg.norm(layer.proj_weight):
                 #     break 
 
             layer.update()
-
             # if torch.linalg.norm(layer.weight_t - layer.weight_old) < args.lipr_prec * torch.norm(layer.weight_t):
             #     break
-        
+            
             params = layer.prox_weight.reshape(layer.weight.shape)
-            # params[torch.abs(params) < layer.lc_alpha * layer.lipschitz()] = 0
             layer.weight = nn.Parameter(params)
             print (layer.lipschitz())
+            test(args, model, device, test_loader, criterion)
+            if layer.lipschitz() <= 1. or model.lipschitz() <= 1.:
+                break
+        if model.lipschitz() <= 1.:
+            break
 
-        test(args, model, device, test_loader, criterion)
+    test(args, model, device, test_loader, criterion)
+    print_nonzeros(model)
+
+    verified_best = -1
+    for epoch in range(1, args.epochs + 1):
+        train(args, model, device, train_loader,
+                optimizer, epoch, criterion, True)
+        clean, verified, lip = test(args, model, device, test_loader, criterion)
         print_nonzeros(model)
-
-        for epoch in range(1, args.epochs + 1):
-            train(args, model, device, train_loader,
-                    optimizer, epoch, criterion, True)
-            # test(args, model, device, test_loader, criterion)
-            # print_nonzeros(model)
-
-        acc = test(args, model, device, test_loader, criterion)
-        print_nonzeros(model)
-        layer.free()
-
-        if acc > best_verified:
-            best_verified = acc
+        if verified >= verified_best:
+            verified_best = verified
+            pgd = evaluate_pgd(test_loader, model, epsilon=1.58, niter=100, alpha=1.58/4)
             weight_path = args.weight_path.replace('.pt', f"_lc_alpha-{args.lc_alpha}_eta-{args.eta}_lc_gamma-{args.lc_gamma}_lr-{args.lr}.pt")
-            torch.save(model.state_dict(), weight_path)
-            
+            out_dict = {"weights": model.state_dict(), "clean": clean, "lip": lip, "pgd": pgd, "verified": verified}
+
+            torch.save(out_dict, weight_path)
 
 def print_nonzeros(model):
     nonzero = total = 0 
@@ -148,7 +149,7 @@ def print_nonzeros(model):
         nz_count = np.count_nonzero(abs(tensor) > 0)
         total_params = np.prod(tensor.shape)
         nonzero += nz_count 
-        total += total_params 
+        total += total_params
         # print (f"{name} | nonzeros = {nz_count}/{total_params}" +
         #         f"{100 * nz_count / total_params} | total_pruned = " +
         #         f"{total_params - nz_count} | shape = {tensor.shape}")
@@ -252,10 +253,10 @@ def main():
     print_nonzeros(model)
     process_layers(layers, model, train_loader, test_loader, 
                     criterion, optimizer, args, device)
-    test(args, model, device, test_loader, criterion)
-    # evaluate(test_loader, model, 1.58, 10, args, None, u_test=None, save_u=False) 
-    evaluate_pgd(test_loader, model, epsilon=1.58, niter=20, alpha=1.58/4)
-    print_nonzeros(model)
+    # test(args, model, device, test_loader, criterion)
+    # # evaluate(test_loader, model, 1.58, 10, args, None, u_test=None, save_u=False) 
+    # evaluate_pgd(test_loader, model, epsilon=1.58, niter=20, alpha=1.58/4)
+    # print_nonzeros(model)
     
 
 if __name__ == '__main__':

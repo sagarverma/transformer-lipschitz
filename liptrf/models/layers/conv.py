@@ -80,7 +80,7 @@ class Conv2dX(nn.Module):
         self.weight_old = self.weight_t#.clone().detach()
         # soft thersholding (L1Norm prox)
         wt = torch.abs(self.weight_t) - self.lc_gamma
-        wt[wt > 0] += self.lc_alpha
+        # wt[wt > 0] += self.lc_alpha
         self.prox_weight = (wt * (wt > 0)) * torch.sign(self.weight_t)
         
         # prox lip
@@ -113,6 +113,9 @@ class Conv2dX(nn.Module):
             dW = 2 * torch.mean(torch.einsum("bik,bjk->bij", z, inp_unf), dim=0)
             dW = -fc * dW / torch.linalg.norm(dW)**2
 
+        L = torch.sum(dW**2)
+
+        if L > 2.2204e-16:
             # print (f"Norm dW {torch.linalg.norm(dW)}")
             cW = self.proj_weight_0 - self.proj_weight
             # print (f"Norm cW: {torch.linalg.norm(cW)}")

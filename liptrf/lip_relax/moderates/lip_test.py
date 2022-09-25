@@ -89,64 +89,33 @@ def test(args, model, device, test_loader, criterion):
 def process_layers(layers, model, train_loader, test_loader, 
                     criterion, optimizer, args, device):
 
-    layer_no = 1
-    for layer_lip, layer in layers:
-        print (layer_no, layer, layer_lip)
+    for layer in layers:
+        layer.weight_t = layer.weight.clone().detach()
+        if isinstance(layer, Conv2dX):
+            layer.weight_t = layer.weight_t.view(layer.weight_t.size(0), -1)
         
-        acc, _, _ = test(args, model, device, test_loader, criterion)
-
         for lipr_epoch in range(args.lipr_epochs):
-            layer.weight_t = layer.weight.clone().detach()
-            if isinstance(layer, Conv2dX):
-                layer.weight_t = layer.weight_t.view(layer.weight_t.size(0), -1)
-            
             layer.prox()
+        
+            for proj_epoch in tqdm.tqdm(range(args.proj_epochs)):
+                layer.proj_weight_old = layer.proj_weight.clone().detach()
                     
-            params = layer.prox_weight.reshape(layer.weight.shape)
-            layer.weight = nn.Parameter(params)
-            lip = model.lipschitz()
-            layer_lip = layer.lc
-            
-            print (f"{layer_no} {layer} Model : {lip} Layer : {layer_lip}")
-            
-            for epoch in range(1, args.proj_epochs):
-                train(args, model, device, train_loader,
-                        optimizer, epoch, criterion, True)
-                curr_acc, _, _ = test(args, model, device, test_loader, criterion)
-                print_nonzeros(model)
-                [print(f"{l[1].lipschitz().item():.2f}", end=' ') for l in layers]
-                print ()
-                lip = model.lipschitz()
-                layer_lip = layer.lc    
-                if layer_lip <= 1 or lip <= 4:
-                    break
+                for batch_idx, (data, target) in enumerate(train_loader):
+                    _ = model(data.to(device))
+                    layer.proj()
+                    
+                # print (torch.linalg.norm(layer.proj_weight - layer.proj_weight_old, 'fro'), args.proj_prec * torch.linalg.norm(layer.proj_weight, 'fro'))
+                if torch.linalg.norm(layer.proj_weight - layer.proj_weight_old) < args.proj_prec * torch.linalg.norm(layer.proj_weight):
+                    break 
 
-                if abs(curr_acc - acc) <= 1:
-                    break
-            
-            if layer_lip <= 1 or lip <= 4:
+            layer.update()
+            if torch.linalg.norm(layer.weight_t - layer.weight_old) < args.lipr_prec * torch.norm(layer.weight_t):
                 break
             
-        layer_no += 1
-        layer.free()
-        if model.lipschitz() <= 4:
-            break 
-
-
-    
-    verified_best = -1
-    for epoch in range(1, args.epochs + 1):
-        train(args, model, device, train_loader,
-                optimizer, epoch, criterion, True)
-        clean, verified, lip = test(args, model, device, test_loader, criterion)
-        print_nonzeros(model)
-        if verified >= verified_best:
-            verified_best = verified
-            pgd = evaluate_pgd(test_loader, model, epsilon=36/255, niter=10, alpha=36/255/4)
-            weight_path = args.weight_path.replace('.pt', f"_lc_alpha-{args.lc_alpha}_eta-{args.eta}_lc_gamma-{args.lc_gamma}_lr-{args.lr}.pt")
-            out_dict = {"weights": model.state_dict(), "clean": clean, "lip": lip, "pgd": pgd, "verified": verified}
-
-            torch.save(out_dict, weight_path)
+        params = layer.prox_weight.reshape(layer.weight.shape)
+        layer.weight = nn.Parameter(params)
+        print (layer.lipschitz())
+        test(args, model, device, test_loader, criterion)
 
 def print_nonzeros(model):
     nonzero = total = 0 

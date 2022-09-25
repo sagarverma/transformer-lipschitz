@@ -89,7 +89,8 @@ def test(args, model, device, test_loader, criterion):
 def process_layers(layers, model, train_loader, test_loader, 
                     criterion, optimizer, args, device):
 
-    for layer in layers:
+    for lip, layer in layers:
+        print (lip)
         layer.weight_t = layer.weight.clone().detach()
         if isinstance(layer, Conv2dX):
             layer.weight_t = layer.weight_t.view(layer.weight_t.size(0), -1)

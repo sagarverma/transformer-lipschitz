@@ -12,6 +12,8 @@ from torchvision import datasets, transforms
 
 from liptrf.models.moderate import CIFAR10_4C3F_ReLUx, CIFAR10_6C2F_ReLUx
 
+from liptrf.utils.evaluate import evaluate_pgd
+
 
 def train(args, model, device, train_loader,
           optimizer, epoch, criterion, finetune=False):
@@ -48,25 +50,40 @@ def test(args, model, device, test_loader, criterion):
     model.eval()
     test_loss = 0
     correct = 0
-    with torch.no_grad():
-        for data, target in test_loader:
-            data, target = data.to(device), target.to(device)
-            output = model(data)
-            test_loss += criterion(output, target).item()  # sum up batch loss
-            pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log_probability
-            correct += pred.eq(target.view_as(pred)).sum().item()
-            torch.cuda.empty_cache()
+    
+    lip = model.lipschitz()
+    verified = 0
+
+    # with torch.no_grad():
+    for data, target in test_loader:
+        data, target = data.to(device), target.to(device)
+        output = model.forward(data)
+        
+        test_loss += criterion(output, target).item()  # sum up batch loss
+        pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log_probability
+        correct += pred.eq(target.view_as(pred)).sum().item()
+
+        # print (output.max())
+        one_hot = F.one_hot(target, num_classes=output.shape[-1])
+        worst_logit = output + 2**0.5 * 1.58 * lip * (1 - one_hot)
+        worst_pred = worst_logit.argmax(dim=1, keepdim=True)
+        verified += worst_pred.eq(target.view_as(worst_pred)).sum().item()
+
+        torch.cuda.empty_cache()
+
+    test_samples = len(test_loader.dataset)
 
     test_loss /= len(test_loader.dataset)
     test_samples = len(test_loader.dataset)
-    lip = model.lipschitz().item()
-
+    
     print(f"Test set: Average loss: {test_loss:.4f}, " +
-          f"Accuracy: {correct}/{test_samples} " +
-          f"({100.*correct/test_samples:.0f}%), " +
+          f"Accuracy: {correct}/{test_samples} " + 
+          f"({100.*correct/test_samples:.2f}%), " +
+          f"Verified: {100.*verified/test_samples:.2f}%, " +
           f"Error: {(test_samples-correct)/test_samples * 100:.2f}% " +
-          f"Lipschitz {lip:4f} \n")
-    return 100.*correct/test_samples, test_loss, lip
+          f"Lipschitz {lip:4f}")
+    
+    return 100.*correct/test_samples, 100.*verified/test_samples, lip
 
 
 def main():
@@ -170,6 +187,7 @@ def main():
             os.mkdir(args.weight_path)
 
         best_acc = -1
+        best_state = None
         for epoch in range(1, args.epochs + 1):
             train(args, model, device, train_loader,
                   optimizer, epoch, criterion, False)
@@ -183,18 +201,21 @@ def main():
         
             if acc > best_acc and epoch >= args.warmup:
                 best_acc = acc
+                best_state = model.state_dict()
                 torch.save(model.state_dict(), weight_path)
         
-        fout.close() 
+        fout.close()
+        model.load_state_dict(best_state)
+        model.eval()
+        test(args, model, device, test_loader, criterion)
+        evaluate_pgd(test_loader, model, epsilon=36/255, niter=20, alpha=36/255/4)
 
     if args.task == 'test':
         weight = torch.load(args.weight_path, map_location=device)
         model.load_state_dict(weight, strict=False)
-        # for layer in model.modules():
-        #     if isinstance(layer, LinearX):
-        #         layer.rand_x = nn.Parameter(trunc(layer.rand_x.shape))
-        model = model.to(device)
+        model.eval()
         test(args, model, device, test_loader, criterion)
+        evaluate_pgd(test_loader, model, epsilon=36/255, niter=20, alpha=36/255/4)
 
 if __name__ == '__main__':
     main()

@@ -105,9 +105,13 @@ def process_layers(layers, model, train_loader, test_loader,
         
             for proj_epoch in tqdm.tqdm(range(args.proj_epochs)):
                 layer.proj_weight_old = layer.proj_weight.clone().detach()
-                    
+                
+                model.train()
                 for batch_idx, (data, target) in enumerate(train_loader):
-                    _ = model(data.to(device))
+                    optimizer.zero_grad()
+                    pred = model(data.to(device))
+                    loss = criterion(pred, target)
+                    loss.backward()
                     layer.proj()
                     
                 if torch.linalg.norm(layer.proj_weight - layer.proj_weight_old) < args.proj_prec * torch.linalg.norm(layer.proj_weight):
@@ -246,7 +250,7 @@ def main():
     weight = torch.load(args.weight_path)
     model.load_state_dict(weight, strict=False)
     model = model.to(device)
-    model.eval()
+    # model.eval()
 
     criterion = nn.CrossEntropyLoss()
     if args.opt == 'adam': 
@@ -273,6 +277,7 @@ def main():
     if args.task == 'test':
         weight = torch.load(args.weight_path, map_location=device)
         model.load_state_dict(weight['weights'])
+        model.eval()
         test(args, model, device, test_loader, criterion)
         evaluate_pgd(test_loader, model, epsilon=1.58, niter=20, alpha=1.58/4, device=device)   
 

@@ -43,25 +43,25 @@ class MNIST_4C3F_ReLUx(nn.Module):
                  power_iter=5, lmbda=1, lc_gamma=0.1, lc_alpha=0.01, lr=1.2, eta=1e-2):
         super(MNIST_4C3F_ReLUx, self).__init__()
         self.conv1 = Conv2dX(1, 32, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu1 = ReLU_x(torch.Size([1, 32, 28, 28]))
         self.conv2 = Conv2dX(32, 32, 4, stride=2, padding=1, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu2 = ReLU_x(torch.Size([1, 32, 14, 14]))
         self.conv3 = Conv2dX(32, 64, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu3 = ReLU_x(torch.Size([1, 64, 14, 14]))
         self.conv4 = Conv2dX(64, 64, 4, stride=2, padding=1, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu4 = ReLU_x(torch.Size([1, 64, 7, 7]))
         
         self.flatten = Flatten()
         
         self.fc1 = LinearX(64*7*7, 512, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu5 = ReLU_x(torch.Size([1, 512]))
         self.fc2 = LinearX(512, 512, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu6 = ReLU_x(torch.Size([1, 512]))
         self.fc3 = LinearX(512, 10, power_iter=power_iter, lmbda=lmbda, 
                              lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
@@ -133,28 +133,28 @@ class MNIST_4C3F_ReLU(nn.Module):
                  power_iter=5, lmbda=1, lc_gamma=0.1, lc_alpha=0.01, lr=1.2, eta=1e-2):
         super(MNIST_4C3F_ReLU, self).__init__()
         self.conv1 = Conv2dX(1, 32, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu1 = nn.ReLU()
         self.conv2 = Conv2dX(32, 32, 4, stride=2, padding=1, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu2 = nn.ReLU()
         self.conv3 = Conv2dX(32, 64, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu3 = nn.ReLU()
         self.conv4 = Conv2dX(64, 64, 4, stride=2, padding=1, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu4 = nn.ReLU()
         
         self.flatten = Flatten()
         
         self.fc1 = LinearX(64*7*7, 512, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu5 = nn.ReLU()
         self.fc2 = LinearX(512, 512, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu6 = nn.ReLU()
         self.fc3 = LinearX(512, 10, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
 
 
     def forward(self, x):
@@ -182,29 +182,29 @@ class MNIST_4C3F_ReLU(nn.Module):
 
 class CIFAR10_4C3F_ReLUx(nn.Module):
 
-    def __init__(self, 
+    def __init__(self,
                  power_iter=5, lmbda=1, lc_gamma=0.1, lc_alpha=0.01, lr=1.2, eta=1e-2):
         super(CIFAR10_4C3F_ReLUx, self).__init__()
         self.conv1 = Conv2dX(3, 32, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu1 = ReLU_x(torch.Size([1, 32, 32, 32]))
         self.conv2 = Conv2dX(32, 32, 4, stride=2, padding=1, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu2 = ReLU_x(torch.Size([1, 32, 16, 16]))
         self.conv3 = Conv2dX(32, 64, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu3 = ReLU_x(torch.Size([1, 64, 16, 16]))
         self.conv4 = Conv2dX(64, 64, 4, stride=2, padding=1, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu4 = ReLU_x(torch.Size([1, 64, 8, 8]))
         
         self.flatten = Flatten()
         
         self.fc1 = LinearX(64*8*8, 512, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu5 = ReLU_x(torch.Size([1, 512]))
         self.fc2 = LinearX(512, 512, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu6 = ReLU_x(torch.Size([1, 512]))
         self.fc3 = LinearX(512, 10, power_iter=power_iter, lmbda=lmbda, 
                              lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
@@ -275,28 +275,28 @@ class CIFAR10_6C2F_ReLUx(nn.Module):
                  power_iter=5, lmbda=1, lc_gamma=0.1, lc_alpha=0.01, lr=1.2, eta=1e-2):
         super(CIFAR10_6C2F_ReLUx, self).__init__()
         self.conv1 = Conv2dX(3, 32, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu1 = ReLU_x(torch.Size([1, 32, 32, 32]), init)
         self.conv2 = Conv2dX(32, 32, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu2 = ReLU_x(torch.Size([1, 32, 32, 32]), init)
         self.conv3 = Conv2dX(32, 32, 4, stride=2, padding=1, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu3 = ReLU_x(torch.Size([1, 32, 16, 16]), init)
         self.conv4 = Conv2dX(32, 64, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu4 = ReLU_x(torch.Size([1, 64, 16, 16]), init)
         self.conv5 = Conv2dX(64, 64, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu5 = ReLU_x(torch.Size([1, 64, 16, 16]), init)
         self.conv6 = Conv2dX(64, 64, 4, stride=2, padding=1, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu6 = ReLU_x(torch.Size([1, 64, 8, 8]), init)
         
         self.flatten = Flatten()
         
         self.fc1 = LinearX(4096, 512, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu7 = ReLU_x(torch.Size([1, 512]), init)
         self.fc2 = LinearX(512, 10, power_iter=power_iter, lmbda=lmbda, 
                              lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
@@ -430,28 +430,28 @@ class CIFAR10_6C2F_ReLU(nn.Module):
                  power_iter=5, lmbda=1, lc_gamma=0.1, lc_alpha=0.01, lr=1.2, eta=1e-2):
         super(CIFAR10_6C2F_ReLU, self).__init__()
         self.conv1 = Conv2dX(3, 32, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu1 = nn.ReLU()
         self.conv2 = Conv2dX(32, 32, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu2 = nn.ReLU()
         self.conv3 = Conv2dX(32, 32, 4, stride=2, padding=1, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu3 = nn.ReLU()
         self.conv4 = Conv2dX(32, 64, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu4 = nn.ReLU()
         self.conv5 = Conv2dX(64, 64, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu5 = nn.ReLU()
         self.conv6 = Conv2dX(64, 64, 4, stride=2, padding=1, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu6 = nn.ReLU()
         
         self.flatten = Flatten()
         
         self.fc1 = LinearX(4096, 512, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu7 = nn.ReLU()
         self.fc2 = LinearX(512, 10, power_iter=power_iter, lmbda=lmbda, 
                              lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
@@ -484,28 +484,28 @@ class CIFAR100_6C2F_ReLUx(nn.Module):
                  power_iter=5, lmbda=1, lc_gamma=0.1, lc_alpha=0.01, lr=1.2, eta=1e-2):
         super(CIFAR100_6C2F_ReLUx, self).__init__()
         self.conv1 = Conv2dX(3, 32, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu1 = ReLU_x(torch.Size([1, 32, 32, 32]), init)
         self.conv2 = Conv2dX(32, 32, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu2 = ReLU_x(torch.Size([1, 32, 32, 32]), init)
         self.conv3 = Conv2dX(32, 32, 4, stride=2, padding=1, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu3 = ReLU_x(torch.Size([1, 32, 16, 16]), init)
         self.conv4 = Conv2dX(32, 64, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu4 = ReLU_x(torch.Size([1, 64, 16, 16]), init)
         self.conv5 = Conv2dX(64, 64, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu5 = ReLU_x(torch.Size([1, 64, 16, 16]), init)
         self.conv6 = Conv2dX(64, 64, 4, stride=2, padding=1, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu6 = ReLU_x(torch.Size([1, 64, 8, 8]), init)
         
         self.flatten = Flatten()
         
         self.fc1 = LinearX(4096, 512, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu7 = ReLU_x(torch.Size([1, 512]), init)
         self.fc2 = LinearX(512, 100, power_iter=power_iter, lmbda=lmbda, 
                              lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
@@ -581,34 +581,34 @@ class CIFAR100_8C2F_ReLUx(nn.Module):
                  power_iter=5, lmbda=1, lc_gamma=0.1, lc_alpha=0.01, lr=1.2, eta=1e-2):
         super(CIFAR100_8C2F_ReLUx, self).__init__()
         self.conv1 = Conv2dX(3, 64, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu1 = ReLU_x(torch.Size([1, 64, 32, 32]), init)
         self.conv2 = Conv2dX(64, 64, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu2 = ReLU_x(torch.Size([1, 64, 32, 32]), init)
         self.conv3 = Conv2dX(64, 64, 4, stride=2, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu3 = ReLU_x(torch.Size([1, 64, 15, 15]), init)
         self.conv4 = Conv2dX(64, 128, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu4 = ReLU_x(torch.Size([1, 128, 15, 15]), init)
         self.conv5 = Conv2dX(128, 128, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu5 = ReLU_x(torch.Size([1, 128, 15, 15]), init)
         self.conv6 = Conv2dX(128, 128, 4, stride=2, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu6 = ReLU_x(torch.Size([1, 128, 6, 6]), init)
         self.conv7 = Conv2dX(128, 256, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu7 = ReLU_x(torch.Size([1, 256, 6, 6]), init)
         self.conv8 = Conv2dX(256, 256, 4, stride=2, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu8 = ReLU_x(torch.Size([1, 256, 2, 2]), init)
         
         self.flatten = Flatten()
         
         self.fc1 = LinearX(1024, 256, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu9 = ReLU_x(torch.Size([1, 256]), init)
         self.fc2 = LinearX(256, 100, power_iter=power_iter, lmbda=lmbda, 
                              lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
@@ -696,34 +696,34 @@ class TinyImageNet_8C2F_ReLUx(nn.Module):
                  power_iter=5, lmbda=1, lc_gamma=0.1, lc_alpha=0.01, lr=1.2, eta=1e-2):
         super(TinyImageNet_8C2F_ReLUx, self).__init__()
         self.conv1 = Conv2dX(3, 64, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu1 = ReLU_x(torch.Size([1, 64, 64, 64]), init)
         self.conv2 = Conv2dX(64, 64, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu2 = ReLU_x(torch.Size([1, 64, 64, 64]), init)
         self.conv3 = Conv2dX(64, 64, 4, stride=2, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu3 = ReLU_x(torch.Size([1, 64, 31, 31]), init)
         self.conv4 = Conv2dX(64, 128, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu4 = ReLU_x(torch.Size([1, 128, 31, 31]), init)
         self.conv5 = Conv2dX(128, 128, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu5 = ReLU_x(torch.Size([1, 128, 31, 31]), init)
         self.conv6 = Conv2dX(128, 128, 4, stride=2, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu6 = ReLU_x(torch.Size([1, 128, 14, 14]), init)
         self.conv7 = Conv2dX(128, 256, 3, stride=1, padding=1, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu7 = ReLU_x(torch.Size([1, 256, 14, 14]), init)
         self.conv8 = Conv2dX(256, 256, 4, stride=2, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu8 = ReLU_x(torch.Size([1, 256, 6, 6]), init)
         
         self.flatten = Flatten()
         
         self.fc1 = LinearX(9216, 256, power_iter=power_iter, lmbda=lmbda, 
-                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)
+                             lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta, relu_after=True)
         self.relu9 = ReLU_x(torch.Size([1, 256]), init)
         self.fc2 = LinearX(256, 200, power_iter=power_iter, lmbda=lmbda, 
                              lc_gamma=lc_gamma, lc_alpha=lc_alpha, lr=lr, eta=eta)

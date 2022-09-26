@@ -90,33 +90,52 @@ def test(args, model, device, test_loader, criterion):
 def process_layers(layers, model, train_loader, test_loader, 
                     criterion, optimizer, args, device):
 
-    amount = 0.95
-    for lipr_epoch in range(args.lipr_epochs):
-        for layer_lip, layer in layers:
-            # if layer_lip >= 7**(1/len(layers)):
-            print (layer, layer_lip)        
-            prune.l1_unstructured(layer, name='weight', amount=amount)
-            layer.weight *= layer.weight_mask
-            lip = model.lipschitz()
-            layer_lip = layer.lc
-            print (f"Model : {lip} Layer : {layer_lip}")
+    test(args, model, device, test_loader, criterion)
+    for layer in layers:
+        print (layer.lipschitz().item())
+        layer.weight_t = layer.weight.clone().detach()
+        if isinstance(layer, Conv2dX):
+            layer.weight_t = layer.weight_t.view(layer.weight_t.size(0), -1)
         
-        for epoch in range(1, args.proj_epochs):
-            train(args, model, device, train_loader,
-                    optimizer, epoch, criterion, True)
-            curr_acc, _, _ = test(args, model, device, test_loader, criterion)
-            print_nonzeros(model)
-            [print(f"{l[1].lipschitz().item():.2f}", end=' ') for l in layers]
-            print ()
-            if model.lipschitz() <= 4:
-                break
+        for lipr_epoch in range(args.lipr_epochs):
+            layer.prox()
         
-        # amount -= 0.2
+            for proj_epoch in tqdm.tqdm(range(args.proj_epochs)):
+                layer.proj_weight_old = layer.proj_weight.clone().detach()
+                    
+                for batch_idx, (data, target) in enumerate(train_loader):
+                    _ = model(data.to(device))
+                    layer.proj()
+                    
+                if torch.linalg.norm(layer.proj_weight - layer.proj_weight_old) < args.proj_prec * torch.linalg.norm(layer.proj_weight):
+                    break
 
-        if model.lipschitz() <= 4:
+            layer.update()
+            
+            old_weight = layer.weight.clone().detach()
+            params = layer.prox_weight.reshape(layer.weight.shape)
+            layer.weight = nn.Parameter(params)
+            print (f"Prox {lipr_epoch} Proj {proj_epoch} Layer Lip {layer.lipschitz().item():.2f}")
+            test(args, model, device, test_loader, criterion)
+            layer.weight = nn.Parameter(old_weight)
+            if layer.lc <= 5**(1/len(layers)):
+                break 
+
+            if torch.linalg.norm(layer.weight_t - layer.weight_old) < args.lipr_prec * torch.norm(layer.weight_t):
+                break
+            
+        params = layer.prox_weight.reshape(layer.weight.shape)
+        layer.weight = nn.Parameter(params)
+        print (f"Prox {lipr_epoch} Layer Lip {layer.lipschitz().item():.2f}")
+        test(args, model, device, test_loader, criterion)
+        if model.lipschitz() <= 5.:
             break
-    
+
+    test(args, model, device, test_loader, criterion)
+    print_nonzeros(model)
+
     verified_best = -1
+    verified_best_state = None
     for epoch in range(1, args.epochs + 1):
         train(args, model, device, train_loader,
                 optimizer, epoch, criterion, True)
@@ -124,11 +143,15 @@ def process_layers(layers, model, train_loader, test_loader,
         print_nonzeros(model)
         if verified >= verified_best:
             verified_best = verified
-            pgd = evaluate_pgd(test_loader, model, epsilon=36/255, niter=10, alpha=36/255/4)
+            verified_best_state = model.state_dict()
+            pgd = evaluate_pgd(test_loader, model, epsilon=1.58, niter=100, alpha=1.58/4, device=device)
             weight_path = args.weight_path.replace('.pt', f"_lc_alpha-{args.lc_alpha}_eta-{args.eta}_lc_gamma-{args.lc_gamma}_lr-{args.lr}.pt")
             out_dict = {"weights": model.state_dict(), "clean": clean, "lip": lip, "pgd": pgd, "verified": verified}
-
             torch.save(out_dict, weight_path)
+
+    model.load_state_dict(verified_best_state)
+    test(args, model, device, test_loader, criterion)
+    pgd = evaluate_pgd(test_loader, model, epsilon=36/255, niter=100, alpha=36/255/4, device=device)
 
 def print_nonzeros(model):
     nonzero = total = 0 
@@ -160,7 +183,8 @@ def main():
     parser.add_argument('--lipr_prec', default=1e-4, type=float)
     parser.add_argument('--proj_prec', default=1e-7, type=float)
     parser.add_argument('--epochs', default=10, type=int)
-
+    
+    parser.add_argument('--task', default='constrain', type=str)
     parser.add_argument('--data', default='cifar10', type=str)
     parser.add_argument('--model', default='4c3f_relux', type=str)
     parser.add_argument('--opt', default='adam', type=str)
@@ -236,18 +260,21 @@ def main():
                                                                  70, 80],
                                                      gamma=0.2)
         
-    # if args.task == 'constrain':
-    layers = []
-    for layer in model.modules():
-        if isinstance(layer, Conv2dX) or isinstance(layer, LinearX):
-            lip = layer.lipschitz().item()
-            layers.append([lip, layer])
-    layers = sorted(layers, key=itemgetter(0))
-    layers.reverse()
-    print (layers)
-    print_nonzeros(model)
-    process_layers(layers, model, train_loader, test_loader, 
-                    criterion, optimizer, args, device)
+    if args.task == 'constrain':
+        layers = []
+        for layer in model.modules():
+            if isinstance(layer, Conv2dX) or isinstance(layer, LinearX):
+                layers.append(layer)
+
+        print_nonzeros(model)
+        process_layers(layers, model, train_loader, test_loader, 
+                        criterion, optimizer, args, device)
+
+    if args.task == 'test':
+        weight = torch.load(args.weight_path, map_location=device)
+        model.load_state_dict(weight['weights'])
+        test(args, model, device, test_loader, criterion)
+        evaluate_pgd(test_loader, model, epsilon=36/255, niter=100, alpha=36/255/4, device=device)   
 
 if __name__ == '__main__':
     main()

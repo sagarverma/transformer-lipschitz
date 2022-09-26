@@ -152,7 +152,7 @@ def process_layers(layers, model, train_loader, test_loader,
             out_dict = {"weights": model.state_dict(), "clean": clean, "lip": lip, "pgd": pgd, "verified": verified}
             torch.save(out_dict, weight_path)
 
-    model.load_sate_dict(verified_best_state)
+    model.load_state_dict(verified_best_state)
     test(args, model, device, test_loader, criterion)
     pgd = evaluate_pgd(test_loader, model, epsilon=1.58, niter=100, alpha=1.58/4, device=device)
 

@@ -227,11 +227,11 @@ def main():
     if args.model == 'linear':
         model = Net(power_iter=args.power_iter, lmbda=1, 
                      lc_gamma=args.lc_gamma, lc_alpha=args.lc_alpha, 
-                     lr=args.lr, eta=args.eta).cuda()
+                     lr=args.lr, eta=args.eta).to(device)
     elif args.model == '4c3f_relux':
         model = MNIST_4C3F_ReLUx(power_iter=args.power_iter, lmbda=1, 
                     lc_gamma=args.lc_gamma, lc_alpha=args.lc_alpha, 
-                    lr=args.lr, eta=args.eta).cuda()
+                    lr=args.lr, eta=args.eta).to(device)
     weight = torch.load(args.weight_path)
     model.load_state_dict(weight, strict=False)
     model = model.to(device)

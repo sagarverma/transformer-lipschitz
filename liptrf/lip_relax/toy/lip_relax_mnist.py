@@ -187,7 +187,8 @@ def main():
     parser.add_argument('--lipr_prec', default=1e-4, type=float)
     parser.add_argument('--proj_prec', default=1e-7, type=float)
     parser.add_argument('--epochs', default=10, type=int)
-    
+
+    parser.add_argument('--task', default='constrain', type=str)
     parser.add_argument('--data', default='mnist', type=str)
     parser.add_argument('--model', default='standrelu', type=str)
     parser.add_argument('--opt', default='adam', type=str)
@@ -259,19 +260,21 @@ def main():
                                                                  70, 80],
                                                      gamma=0.2)
     
-    layers = []
-    for layer in model.modules():
-        if isinstance(layer, Conv2dX) or isinstance(layer, LinearX):
-            layers.append(layer)
+    if args.task == 'constrain':
+        layers = []
+        for layer in model.modules():
+            if isinstance(layer, Conv2dX) or isinstance(layer, LinearX):
+                layers.append(layer)
 
-    print_nonzeros(model)
-    process_layers(layers, model, train_loader, test_loader, 
-                    criterion, optimizer, args, device)
-    # test(args, model, device, test_loader, criterion)
-    # # evaluate(test_loader, model, 1.58, 10, args, None, u_test=None, save_u=False) 
-    # evaluate_pgd(test_loader, model, epsilon=1.58, niter=20, alpha=1.58/4)
-    # print_nonzeros(model)
-    
+        print_nonzeros(model)
+        process_layers(layers, model, train_loader, test_loader, 
+                        criterion, optimizer, args, device)
+
+    if args.task == 'test':
+        weight = torch.load(args.weight_path, map_location=device)
+        model.load_state_dict(weight['weights'])
+        test(args, model, device, test_loader, criterion)
+        evaluate_pgd(test_loader, model, epsilon=1.58, niter=20, alpha=1.58/4)   
 
 if __name__ == '__main__':
     main()

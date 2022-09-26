@@ -102,6 +102,9 @@ def process_layers(layers, model, train_loader, test_loader,
         
         for lipr_epoch in range(args.lipr_epochs):
             layer.prox()
+
+            if layer.lipschitz() <= 1:
+                break
         
             for proj_epoch in tqdm.tqdm(range(args.proj_epochs)):
                 layer.proj_weight_old = layer.proj_weight.clone().detach()

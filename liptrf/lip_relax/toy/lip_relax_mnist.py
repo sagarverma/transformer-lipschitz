@@ -110,7 +110,7 @@ def process_layers(layers, model, train_loader, test_loader,
                 for batch_idx, (data, target) in enumerate(train_loader):
                     optimizer.zero_grad()
                     pred = model(data.to(device))
-                    loss = criterion(pred, target)
+                    loss = criterion(pred, target.to(device))
                     loss.backward()
                     layer.proj()
                     

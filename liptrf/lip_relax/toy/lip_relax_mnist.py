@@ -95,6 +95,7 @@ def process_layers(layers, model, train_loader, test_loader,
 
     test(args, model, device, test_loader, criterion)
     for layer in layers:
+        print (layer.lipschitz())
         layer.weight_t = layer.weight.clone().detach()
         if isinstance(layer, Conv2dX):
             layer.weight_t = layer.weight_t.view(layer.weight_t.size(0), -1)
@@ -109,7 +110,6 @@ def process_layers(layers, model, train_loader, test_loader,
                     _ = model(data.to(device))
                     layer.proj()
                     
-                # print (torch.linalg.norm(layer.proj_weight - layer.proj_weight_old, 'fro'), args.proj_prec * torch.linalg.norm(layer.proj_weight, 'fro'))
                 if torch.linalg.norm(layer.proj_weight - layer.proj_weight_old) < args.proj_prec * torch.linalg.norm(layer.proj_weight):
                     break 
 

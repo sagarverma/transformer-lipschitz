@@ -47,8 +47,8 @@ def train(args, model, device, train_loader,
     train_samples = len(train_loader.dataset)
 
     print(f"Epoch: {epoch}, Train set: Average loss: {train_loss:.4f}, " +
-          f"Accuracy: {correct}/{train_samples} " +
-          f"({100.*correct/train_samples:.0f}%), " +
+          f"Accuracy: {correct}/{train_samples:.2f} " +
+          f"({100.*correct/train_samples:.2f}%), " +
           f"Error: {(train_samples-correct)/train_samples * 100:.2f}%")
 
 def test(args, model, device, test_loader, criterion):
@@ -82,7 +82,7 @@ def test(args, model, device, test_loader, criterion):
     test_samples = len(test_loader.dataset)
     
     print(f"Test set: Average loss: {test_loss:.4f}, " +
-          f"Accuracy: {correct}/{test_samples} " + 
+          f"Accuracy: {correct}/{test_samples:.2f} " + 
           f"({100.*correct/test_samples:.2f}%), " +
           f"Verified: {100.*verified/test_samples:.2f}%, " +
           f"Error: {(test_samples-correct)/test_samples * 100:.2f}% " +

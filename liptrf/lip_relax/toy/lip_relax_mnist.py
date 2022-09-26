@@ -119,9 +119,9 @@ def process_layers(layers, model, train_loader, test_loader,
             layer.weight = nn.Parameter(params)
             print (layer.lipschitz())
             test(args, model, device, test_loader, criterion)
-            if layer.lc <= 1.:
+            if layer.lc <= 5**(1/len(layers)):
                 break 
-            
+
             if torch.linalg.norm(layer.weight_t - layer.weight_old) < args.lipr_prec * torch.norm(layer.weight_t):
                 break
             
@@ -129,7 +129,7 @@ def process_layers(layers, model, train_loader, test_loader,
         layer.weight = nn.Parameter(params)
         print (layer.lipschitz())
         test(args, model, device, test_loader, criterion)
-        if model.lipschitz() <= 1.:
+        if model.lipschitz() <= 5.:
             break
 
     test(args, model, device, test_loader, criterion)

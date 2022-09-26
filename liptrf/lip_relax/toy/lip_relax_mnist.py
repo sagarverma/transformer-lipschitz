@@ -95,7 +95,7 @@ def process_layers(layers, model, train_loader, test_loader,
 
     test(args, model, device, test_loader, criterion)
     for layer in layers:
-        print (layer.lipschitz())
+        print (layer.lipschitz().item())
         layer.weight_t = layer.weight.clone().detach()
         if isinstance(layer, Conv2dX):
             layer.weight_t = layer.weight_t.view(layer.weight_t.size(0), -1)
@@ -118,7 +118,7 @@ def process_layers(layers, model, train_loader, test_loader,
             old_weight = layer.weight.clone().detach()
             params = layer.prox_weight.reshape(layer.weight.shape)
             layer.weight = nn.Parameter(params)
-            print (layer.lipschitz())
+            print (f"Prox {lipr_epoch} Proj {proj_epoch} Layer Lip {layer.lipschitz().item():.2f}")
             test(args, model, device, test_loader, criterion)
             layer.weight = nn.Parameter(old_weight)
             if layer.lc <= 5**(1/len(layers)):
@@ -129,7 +129,7 @@ def process_layers(layers, model, train_loader, test_loader,
             
         params = layer.prox_weight.reshape(layer.weight.shape)
         layer.weight = nn.Parameter(params)
-        print (layer.lipschitz())
+        print (f""layer.lipschitz().item())
         test(args, model, device, test_loader, criterion)
         if model.lipschitz() <= 5.:
             break

@@ -91,6 +91,7 @@ def process_layers(layers, model, train_loader, test_loader,
                     criterion, optimizer, args, device):
 
     test(args, model, device, test_loader, criterion)
+    layer_no = 1
     for layer in layers:
         print (layer.lipschitz().item())
         layer.weight_t = layer.weight.clone().detach()
@@ -115,7 +116,7 @@ def process_layers(layers, model, train_loader, test_loader,
             old_weight = layer.weight.clone().detach()
             params = layer.prox_weight.reshape(layer.weight.shape)
             layer.weight = nn.Parameter(params)
-            print (f"Prox {lipr_epoch} Proj {proj_epoch} Layer Lip {layer.lipschitz().item():.2f}")
+            print (f"Layer {layer_no} Prox {lipr_epoch} Proj {proj_epoch} Layer Lip {layer.lipschitz().item():.2f}")
             test(args, model, device, test_loader, criterion)
             layer.weight = nn.Parameter(old_weight)
             if layer.lc <= 5**(1/len(layers)):
@@ -130,6 +131,8 @@ def process_layers(layers, model, train_loader, test_loader,
         test(args, model, device, test_loader, criterion)
         if model.lipschitz() <= 5.:
             break
+
+        layer_no += 1
 
     test(args, model, device, test_loader, criterion)
     print_nonzeros(model)

@@ -111,13 +111,19 @@ def process_layers(layers, model, train_loader, test_loader,
                     layer.proj()
                     
                 if torch.linalg.norm(layer.proj_weight - layer.proj_weight_old) < args.proj_prec * torch.linalg.norm(layer.proj_weight):
-                    break 
+                    break
 
             layer.update()
+            
+            params = layer.weight_t.reshape(layer.weight.shape)
+            layer.weight = nn.Parameter(params)
+            print (layer.lipschitz())
+            test(args, model, device, test_loader, criterion)
+            
             if torch.linalg.norm(layer.weight_t - layer.weight_old) < args.lipr_prec * torch.norm(layer.weight_t):
                 break
             
-        params = layer.prox_weight.reshape(layer.weight.shape)
+        params = layer.weight_t.reshape(layer.weight.shape)
         layer.weight = nn.Parameter(params)
         print (layer.lipschitz())
         test(args, model, device, test_loader, criterion)

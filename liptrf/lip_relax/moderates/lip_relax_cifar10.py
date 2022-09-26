@@ -105,7 +105,10 @@ def process_layers(layers, model, train_loader, test_loader,
                 layer.proj_weight_old = layer.proj_weight.clone().detach()
                     
                 for batch_idx, (data, target) in enumerate(train_loader):
-                    _ = model(data.to(device))
+                    optimizer.zero_grad()
+                    pred = model(data.to(device))
+                    loss = criterion(pred, target.to(device))
+                    loss.backward()
                     layer.proj()
                     
                 if torch.linalg.norm(layer.proj_weight - layer.proj_weight_old) < args.proj_prec * torch.linalg.norm(layer.proj_weight):

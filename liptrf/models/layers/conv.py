@@ -105,7 +105,7 @@ class Conv2dX(nn.Module):
         # print (f"Norm z: {torch.linalg.norm(z).item()} FC: {fc.item()}")
         dW = torch.zeros(self.proj_weight.shape).type_as(self.weight)
 
-        if fc > 0:
+        if fc > 1e-7:
             # for k in range(self.out.shape[0]):
             #     dW += (z[k, :].unsqueeze(1) @ self.inp[k, :].unsqueeze(0))
             # dW /= self.out.shape[0]

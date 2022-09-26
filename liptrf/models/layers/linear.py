@@ -94,16 +94,13 @@ class LinearX(nn.Module):
                 dW = 2 * torch.mean(torch.einsum("bki,bkj->bij", z, self.inp), dim=0)
             else:
                 dW = 2 * torch.mean(torch.einsum("bi,bj->bij", z, self.inp), dim=0)
-            dW = -fc * dW / torch.linalg.norm(dW)**2
+            dW = fc * dW / torch.linalg.norm(dW)**2
 
-        L = torch.sum(dW**2)
-
-        if L > 2.2204e-16:
             cW = self.proj_weight_0 - self.proj_weight
             # print (f"Norm cW: {torch.linalg.norm(cW)}")
             
             # pi = torch.trace(cW.T @ dW)
-            pi = -cW.flatten().T @ dW.flatten()
+            pi = cW.flatten().T @ dW.flatten()
             # print (f"pi {pi}")
             mu = torch.norm(cW, "fro")**2
             vu = torch.norm(dW, "fro")**2
@@ -115,16 +112,16 @@ class LinearX(nn.Module):
 
             if (chi == 0) and (pi >= 0):
                 # print (f"1 Before Norm proj_weight: {torch.linalg.norm(self.proj_weight)}")
-                self.proj_weight = self.proj_weight + dW
+                self.proj_weight = self.proj_weight - dW
                 # print (f"1 After Norm proj_weight: {torch.linalg.norm(self.proj_weight)}")
             elif (chi > 0) and ((pi * vu) >= chi):
                 # print (f"2 Before Norm proj_weight: {torch.linalg.norm(self.proj_weight)}")
-                self.proj_weight = self.proj_weight_0 + (1  + pi/vu) * dW
+                self.proj_weight = self.proj_weight_0 - (1  + pi/vu) * dW
                 # print (f"2 After Norm proj_weight: {torch.linalg.norm(self.proj_weight)}")
             elif (chi > 0) and (pi * vu) < chi:
                 # print (f"3 Before Norm proj_weight: {torch.linalg.norm(self.proj_weight)}")
                 self.proj_weight = self.proj_weight + vu / chi * \
-                                    (pi * cW + mu * dW)
+                                    (pi * cW - mu * dW)
                 # print (f"3 After Norm proj_weight: {torch.linalg.norm(self.proj_weight)}")
             else:
                 print ("error", chi)

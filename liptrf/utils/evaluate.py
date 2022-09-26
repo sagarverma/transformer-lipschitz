@@ -9,7 +9,7 @@ from advertorch.context import ctx_noparamgrad_and_eval
 
 # TODO: use args not hard code 
 
-def evaluate_pgd(loader, model, epsilon, niter, alpha):
+def evaluate_pgd(loader, model, epsilon, niter, alpha, device):
     model.eval()
     accs = []
 
@@ -18,7 +18,7 @@ def evaluate_pgd(loader, model, epsilon, niter, alpha):
         nb_iter=niter, eps_iter=alpha, rand_init=True, clip_min=0.0, clip_max=1.0, targeted=False)
 
     for i, (X,y) in enumerate(loader):
-        X,y = X.cuda(), y.cuda()
+        X,y = X.to(device), y.to(device)
         with ctx_noparamgrad_and_eval(model):
             X_pgd = adversary.perturb(X, y)
             

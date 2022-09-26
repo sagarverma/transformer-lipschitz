@@ -121,7 +121,7 @@ def process_layers(layers, model, train_loader, test_loader,
         layer.weight = nn.Parameter(params)
         print (layer.lipschitz())
         test(args, model, device, test_loader, criterion)
-        if layer.lipschitz() <= 1. or model.lipschitz() <= 1.:
+        if model.lipschitz() <= 1.:
             break
 
     test(args, model, device, test_loader, criterion)

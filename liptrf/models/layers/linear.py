@@ -30,6 +30,7 @@ class LinearX(nn.Module):
         self.lr = lr
         self.prox_done = False 
         self.proj_done = False
+        self.relu_after = False
         # print (self.power_iter)
 
         nn.init.orthogonal_(self.weight)
@@ -81,6 +82,8 @@ class LinearX(nn.Module):
         # print (self.inp.min(), self.inp.max(), self.out.min(), self.out.max())
         z = F.linear(self.inp, self.proj_weight) - self.out
         # print (z.shape)
+        if self.relu_after:
+            z[self.out == 0 & z <= 0] = 0
         fc = torch.sum(z**2, axis=1) - self.eta
         fc = torch.mean(fc)
         # print (f"Norm z: {torch.linalg.norm(z).item()} FC: {fc.item()}")

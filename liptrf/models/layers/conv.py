@@ -36,6 +36,7 @@ class Conv2dX(nn.Module):
         self.lr = lr
         self.prox_done = False 
         self.proj_done = False
+        self.relu_after = False
 
         nn.init.orthogonal_(self.weight)
 
@@ -99,6 +100,8 @@ class Conv2dX(nn.Module):
         
         z = inp_unf.transpose(1, 2).matmul(self.proj_weight.t()).transpose(1, 2) - out_unf 
         # print (z.shape, self.inp.shape, inp_unf.shape, self.out.shape, out_unf.shape)
+        if self.relu_after:
+            z[out_unf == 0 & z <= 0] = 0
         fc = torch.sum(z**2, axis=(1, 2)) - self.eta
         # print (f"Fc: {fc}")
         fc = torch.mean(fc)

@@ -68,19 +68,19 @@ class LinearX(nn.Module):
         torch.cuda.empty_cache()
 
     def prox(self): 
-        self.weight_old = self.weight_t#.clone().detach()
+        self.weight_old = self.weight_t.clone().detach()
         # soft thersholding (L1Norm prox)
         wt = torch.abs(self.weight_t)
         wt = wt - torch.quantile(wt, self.lc_gamma)
-        self.prox_weight = (wt * (wt > 0)) * torch.sign(self.weight_t)
+        self.prox_weight = ((wt * (wt > 0)) * torch.sign(self.weight_t)).clone().detach()
         
         # prox lip
         # wt = torch.abs(self.weight_t)
         # wt[wt < self.lc_alpha * self.lc] -= self.lc_gamma
         # self.prox_weight = wt * torch.sign(self.weight_t)
         # print (self.prox_weight.max(), self.weight_t.max())
-        self.proj_weight_0 = (2 * self.prox_weight - self.weight_t)#.clone().detach()
-        self.proj_weight = self.proj_weight_0#.clone().detach()
+        self.proj_weight_0 = (2 * self.prox_weight - self.weight_t).clone().detach()
+        self.proj_weight = self.proj_weight_0.clone().detach()
 
     def proj(self):
         # print (self.inp.min(), self.inp.max(), self.out.min(), self.out.max())
@@ -139,7 +139,7 @@ class LinearX(nn.Module):
         # print (f"Norm weight_t {torch.linalg.norm(self.weight_t)} " +
         #         f"Norm proj_weight {torch.linalg.norm(self.proj_weight)} " +
         #         f"Norm prox weight {torch.linalg.norm(self.prox_weight)}")
-        self.weight_t = (self.weight_t + self.lr * (self.proj_weight - self.prox_weight))#.clone().detach()
+        self.weight_t = (self.weight_t + self.lr * (self.proj_weight - self.prox_weight)).clone().detach()
         # print (f"Norm weight_t {torch.linalg.norm(self.weight_t)}")
 
     def free(self):

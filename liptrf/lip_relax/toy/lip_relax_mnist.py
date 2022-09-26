@@ -131,13 +131,17 @@ def process_layers(layers, model, train_loader, test_loader,
             if torch.linalg.norm(layer.weight_t - layer.weight_old) < args.lipr_prec * torch.norm(layer.weight_t):
                 break
             
+        # params = layer.prox_weight.reshape(layer.weight.shape)
+        # layer.weight = nn.Parameter(params)
+        # print (f"Prox {lipr_epoch} Layer Lip {layer.lipschitz().item():.2f}")
+        # test(args, model, device, test_loader, criterion)
+        # if model.lipschitz() <= 4.:
+        #     break
+
+    for layer in layers:
         params = layer.prox_weight.reshape(layer.weight.shape)
         layer.weight = nn.Parameter(params)
-        print (f"Prox {lipr_epoch} Layer Lip {layer.lipschitz().item():.2f}")
-        test(args, model, device, test_loader, criterion)
-        if model.lipschitz() <= 4.:
-            break
-
+    
     test(args, model, device, test_loader, criterion)
     print_nonzeros(model)
 

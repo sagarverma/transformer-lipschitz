@@ -90,17 +90,17 @@ def test(args, model, device, test_loader, criterion):
 def process_layers(layers, model, train_loader, test_loader, 
                     criterion, optimizer, args, device):
 
-    
+    amount = 0.9
     for lipr_epoch in range(args.lipr_epochs):
         for layer_lip, layer in layers:
-            if layer_lip >= 7**(1/len(layers)):
-                print (layer, layer_lip)        
-                prune.l1_unstructured(layer, name='weight', amount=0.9)
-                layer.weight *= layer.weight_mask
-                lip = model.lipschitz()
-                layer_lip = layer.lc
-                print (f"Model : {lip} Layer : {layer_lip}")
-            
+            # if layer_lip >= 7**(1/len(layers)):
+            print (layer, layer_lip)        
+            prune.l1_unstructured(layer, name='weight', amount=amount)
+            layer.weight *= layer.weight_mask
+            lip = model.lipschitz()
+            layer_lip = layer.lc
+            print (f"Model : {lip} Layer : {layer_lip}")
+        
         for epoch in range(1, args.proj_epochs):
             train(args, model, device, train_loader,
                     optimizer, epoch, criterion, True)
@@ -108,10 +108,12 @@ def process_layers(layers, model, train_loader, test_loader,
             print_nonzeros(model)
             [print(f"{l[1].lipschitz().item():.2f}", end=' ') for l in layers]
             print ()
-            if model.lipschitz() <= 7:
+            if model.lipschitz() <= 4:
                 break
-
-        if model.lipschitz() <= 7:
+        
+        amount -= 0.2
+        
+        if model.lipschitz() <= 4:
             break
     
     verified_best = -1

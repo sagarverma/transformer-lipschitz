@@ -79,6 +79,7 @@ def main():
     parser.add_argument('--relax', action='store_true')
     parser.add_argument('--lmbda', type=float, default=1.)
     parser.add_argument('--warmup', type=int, default=0)
+    parser.add_argument('--power_iter', type=int, default=10)
 
     parser.add_argument('--batch_size', type=int, default=64, metavar='N',
                         help='input batch size for training (default: 64)')
@@ -129,9 +130,9 @@ def main():
                                                 num_workers=args.num_workers, shuffle=False)
 
     if args.model == 'linear':
-        model = Net(lmbda=args.lmbda).to(device)
+        model = Net(lmbda=args.lmbda, power_iter=args.power_iter).to(device)
     elif args.model == '4c3f_relux':
-        model = MNIST_4C3F_ReLUx(lmbda=args.lmbda).to(device)
+        model = MNIST_4C3F_ReLUx(lmbda=args.lmbda, power_iter=args.power_iter).to(device)
     
     criterion = nn.CrossEntropyLoss()
     if args.opt == 'adam': 

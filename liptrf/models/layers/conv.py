@@ -90,11 +90,6 @@ class Conv2dX(nn.Module):
         wt = wt - torch.quantile(wt_nz, self.lc_gamma)
         self.prox_weight = ((wt * (wt > 0)) * torch.sign(self.weight_t)).clone().detach()
         
-        # prox lip
-        # wt = torch.abs(self.weight_t)
-        # wt[wt < self.lc_alpha * self.lc] -= self.lc_gamma
-        # self.prox_weight = wt * torch.sign(self.weight_t)
-        
         
         self.proj_weight_0 = (2 * self.prox_weight - self.weight_t).clone().detach()
         self.proj_weight = self.proj_weight_0.clone().detach()

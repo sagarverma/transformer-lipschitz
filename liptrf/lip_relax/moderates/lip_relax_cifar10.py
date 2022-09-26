@@ -8,6 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F 
 import torch.optim as optim 
 from torchvision import datasets, transforms
+from torch.nn.utils import prune
 
 from liptrf.models.moderate import CIFAR10_4C3F_ReLUx, CIFAR10_6C2F_ReLUx
 from liptrf.models.layers.linear import LinearX
@@ -25,7 +26,7 @@ def train(args, model, device, train_loader,
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
-        output = model.forward_lip(data)
+        output = model(data)
         loss = criterion(output, target)
         loss.backward()
         train_loss += loss.item()
@@ -58,7 +59,7 @@ def test(args, model, device, test_loader, criterion):
     # with torch.no_grad():
     for data, target in test_loader:
         data, target = data.to(device), target.to(device)
-        output = model.forward_lip(data)
+        output = model(data)
         
         test_loss += criterion(output, target).item()  # sum up batch loss
         pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log_probability
@@ -89,50 +90,29 @@ def test(args, model, device, test_loader, criterion):
 def process_layers(layers, model, train_loader, test_loader, 
                     criterion, optimizer, args, device):
 
-    layer_no = 1
-    for layer_lip, layer in layers:
-        print (layer_no, layer, layer_lip)
-        
-        acc, _, _ = test(args, model, device, test_loader, criterion)
-
-        for lipr_epoch in range(args.lipr_epochs):
-            layer.weight_t = layer.weight.clone().detach()
-            if isinstance(layer, Conv2dX):
-                layer.weight_t = layer.weight_t.view(layer.weight_t.size(0), -1)
-            
-            layer.prox()
-                    
-            params = layer.prox_weight.reshape(layer.weight.shape)
-            layer.weight = nn.Parameter(params)
-            lip = model.lipschitz()
-            layer_lip = layer.lc
-            
-            print (f"{layer_no} {layer} Model : {lip} Layer : {layer_lip}")
-            
-            for epoch in range(1, args.proj_epochs):
-                train(args, model, device, train_loader,
-                        optimizer, epoch, criterion, True)
-                curr_acc, _, _ = test(args, model, device, test_loader, criterion)
-                print_nonzeros(model)
-                [print(f"{l[1].lipschitz().item():.2f}", end=' ') for l in layers]
-                print ()
+    
+    for lipr_epoch in range(args.lipr_epochs):
+        for layer_lip, layer in layers:
+            if layer_lip >= 7**(1/len(layers)):
+                print (layer, layer_lip)        
+                prune.l1_unstructured(layer, name='weight', amount=0.9)
+                layer.weight *= layer.weight_mask
                 lip = model.lipschitz()
-                layer_lip = layer.lc    
-                if layer_lip <= 1 or lip <= 4:
-                    break
-
-                if abs(curr_acc - acc) <= 1:
-                    break
+                layer_lip = layer.lc
+                print (f"Model : {lip} Layer : {layer_lip}")
             
-            if layer_lip <= 1 or lip <= 4:
+        for epoch in range(1, args.proj_epochs):
+            train(args, model, device, train_loader,
+                    optimizer, epoch, criterion, True)
+            curr_acc, _, _ = test(args, model, device, test_loader, criterion)
+            print_nonzeros(model)
+            [print(f"{l[1].lipschitz().item():.2f}", end=' ') for l in layers]
+            print ()
+            if model.lipschitz() <= 7:
                 break
-            
-        layer_no += 1
-        layer.free()
-        if model.lipschitz() <= 4:
-            break 
 
-
+        if model.lipschitz() <= 7:
+            break
     
     verified_best = -1
     for epoch in range(1, args.epochs + 1):

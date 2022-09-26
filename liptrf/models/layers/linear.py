@@ -70,8 +70,8 @@ class LinearX(nn.Module):
     def prox(self): 
         self.weight_old = self.weight_t#.clone().detach()
         # soft thersholding (L1Norm prox)
-        wt = torch.abs(self.weight_t) - self.lc_gamma #- self.lc_alpha
-        # wt[wt > 0] += self.lc_gamma
+        wt = torch.abs(self.weight_t)
+        wt = wt - torch.quantile(wt, self.lc_gamma)
         self.prox_weight = (wt * (wt > 0)) * torch.sign(self.weight_t)
         
         # prox lip

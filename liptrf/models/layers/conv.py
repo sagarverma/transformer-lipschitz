@@ -103,7 +103,7 @@ class Conv2dX(nn.Module):
         # print (f"Fc: {fc}")
         fc = torch.mean(fc)
         # print (f"Norm z: {torch.linalg.norm(z).item()} FC: {fc.item()}")
-        dW = torch.zeros(self.proj_weight.shape).as_type(self.weight)
+        dW = torch.zeros(self.proj_weight.shape).type_as(self.weight)
 
         if fc > 0:
             # for k in range(self.out.shape[0]):

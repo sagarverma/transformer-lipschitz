@@ -25,7 +25,7 @@ def train(args, model, device, train_loader,
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
-        output = model.forward_lip(data)
+        output = model(data)
         loss = criterion(output, target)
         loss.backward()
         train_loss += loss.item()
@@ -58,7 +58,7 @@ def test(args, model, device, test_loader, criterion):
     # with torch.no_grad():
     for data, target in test_loader:
         data, target = data.to(device), target.to(device)
-        output = model.forward_lip(data)
+        output = model(data)
         
         test_loss += criterion(output, target).item()  # sum up batch loss
         pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log_probability
@@ -104,6 +104,7 @@ def process_layers(layers, model, train_loader, test_loader,
                 for batch_idx, (data, target) in enumerate(train_loader):
                     _ = model(data.to(device))
                     layer.proj()
+                    # break
                     
                 # print (torch.linalg.norm(layer.proj_weight - layer.proj_weight_old, 'fro'), args.proj_prec * torch.linalg.norm(layer.proj_weight, 'fro'))
                 if torch.linalg.norm(layer.proj_weight - layer.proj_weight_old) < args.proj_prec * torch.linalg.norm(layer.proj_weight):
@@ -200,6 +201,7 @@ def main():
         testset, batch_size=args.test_batch_size, shuffle=False, num_workers=args.num_workers)
 
     if args.model == '4c3f_relux':
+        print ("here")
         model = CIFAR10_4C3F_ReLUx(power_iter=args.power_iter, lmbda=1, 
                      lc_gamma=args.lc_gamma, lc_alpha=args.lc_alpha, 
                      lr=args.lr, eta=args.eta).to(device)
@@ -208,7 +210,7 @@ def main():
                      lc_gamma=args.lc_gamma, lc_alpha=args.lc_alpha, 
                      lr=args.lr, eta=args.eta).to(device)
     weight = torch.load(args.weight_path)
-    model.load_state_dict(weight, strict=False)
+    model.load_state_dict(weight)
     model = model.to(device)
     model.eval()
 
@@ -233,6 +235,7 @@ def main():
     layers = sorted(layers, key=itemgetter(0))
     layers.reverse()
     print (layers)
+    test(args, model, device, test_loader, criterion)
     print_nonzeros(model)
     process_layers(layers, model, train_loader, test_loader, 
                     criterion, optimizer, args, device)

@@ -274,7 +274,7 @@ def main():
         weight = torch.load(args.weight_path, map_location=device)
         model.load_state_dict(weight['weights'])
         test(args, model, device, test_loader, criterion)
-        evaluate_pgd(test_loader, model, epsilon=1.58, niter=20, alpha=1.58/4)   
+        evaluate_pgd(test_loader, model, epsilon=1.58, niter=20, alpha=1.58/4, device=device)   
 
 if __name__ == '__main__':
     main()

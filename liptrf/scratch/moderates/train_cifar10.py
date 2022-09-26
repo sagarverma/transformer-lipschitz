@@ -215,7 +215,7 @@ def main():
         model.load_state_dict(weight, strict=False)
         model.eval()
         test(args, model, device, test_loader, criterion)
-        evaluate_pgd(test_loader, model, epsilon=36/255, niter=20, alpha=36/255/4)
+        evaluate_pgd(test_loader, model, epsilon=36/255, niter=20, alpha=36/255/4, device=device)
 
 if __name__ == '__main__':
     main()

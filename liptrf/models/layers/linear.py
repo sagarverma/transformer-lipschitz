@@ -15,7 +15,7 @@ def trunc(shape):
 class LinearX(nn.Module):
     def __init__(self, input, output, 
                  power_iter=5, lmbda=2.5, lc_alpha=0.1,
-                 lc_gamma=0.1, lr=1, eta=1e-7):
+                 lc_gamma=0.1, lr=1, eta=1e-7, relu_after=False):
         super(LinearX, self).__init__()
         self.input = input
         self.output = output
@@ -30,7 +30,7 @@ class LinearX(nn.Module):
         self.lr = lr
         self.prox_done = False 
         self.proj_done = False
-        self.relu_after = False
+        self.relu_after = relu_after
         # print (self.power_iter)
 
         nn.init.orthogonal_(self.weight)

@@ -18,7 +18,7 @@ class Conv2dX(nn.Module):
     def __init__(self, in_channels, out_channels, 
                 kernel_size, stride=1, padding=0,
                 power_iter=5, lmbda=2.5, lc_alpha=0.1,
-                lc_gamma=0.1, lr=1, eta=1e-7):
+                lc_gamma=0.1, lr=1, eta=1e-7, relu_after=False):
         super(Conv2dX, self).__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -36,7 +36,7 @@ class Conv2dX(nn.Module):
         self.lr = lr
         self.prox_done = False 
         self.proj_done = False
-        self.relu_after = False
+        self.relu_after = relu_after
 
         nn.init.orthogonal_(self.weight)
 

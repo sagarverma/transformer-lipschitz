@@ -91,7 +91,6 @@ def process_layers(layers, model, train_loader, test_loader,
                     criterion, optimizer, args, device):
 
     test(args, model, device, test_loader, criterion)
-    layer_no = 1
     for layer in layers:
         print (layer.lipschitz().item())
         layer.weight_t = layer.weight.clone().detach()
@@ -100,10 +99,14 @@ def process_layers(layers, model, train_loader, test_loader,
         
         for lipr_epoch in range(args.lipr_epochs):
             layer.prox()
+
+            if layer.lipschitz() <= 1:
+                break
         
             for proj_epoch in tqdm.tqdm(range(args.proj_epochs)):
                 layer.proj_weight_old = layer.proj_weight.clone().detach()
-                    
+                
+                model.train()
                 for batch_idx, (data, target) in enumerate(train_loader):
                     optimizer.zero_grad()
                     pred = model(data.to(device))
@@ -119,24 +122,26 @@ def process_layers(layers, model, train_loader, test_loader,
             old_weight = layer.weight.clone().detach()
             params = layer.prox_weight.reshape(layer.weight.shape)
             layer.weight = nn.Parameter(params)
-            print (f"Layer {layer_no} Prox {lipr_epoch} Proj {proj_epoch} Layer Lip {layer.lipschitz().item():.2f}")
+            print (f"Prox {lipr_epoch} Proj {proj_epoch} Layer Lip {layer.lipschitz().item():.2f}")
             test(args, model, device, test_loader, criterion)
             layer.weight = nn.Parameter(old_weight)
-            if layer.lc <= 5**(1/len(layers)):
+            if layer.lc <= 1:
                 break 
 
             if torch.linalg.norm(layer.weight_t - layer.weight_old) < args.lipr_prec * torch.norm(layer.weight_t):
                 break
             
+        # params = layer.prox_weight.reshape(layer.weight.shape)
+        # layer.weight = nn.Parameter(params)
+        # print (f"Prox {lipr_epoch} Layer Lip {layer.lipschitz().item():.2f}")
+        # test(args, model, device, test_loader, criterion)
+        # if model.lipschitz() <= 4.:
+        #     break
+
+    for layer in layers:
         params = layer.prox_weight.reshape(layer.weight.shape)
         layer.weight = nn.Parameter(params)
-        print (f"Prox {lipr_epoch} Layer Lip {layer.lipschitz().item():.2f}")
-        test(args, model, device, test_loader, criterion)
-        if model.lipschitz() <= 5.:
-            break
-
-        layer_no += 1
-
+    
     test(args, model, device, test_loader, criterion)
     print_nonzeros(model)
 

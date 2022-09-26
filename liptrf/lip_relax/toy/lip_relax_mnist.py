@@ -129,7 +129,7 @@ def process_layers(layers, model, train_loader, test_loader,
             
         params = layer.prox_weight.reshape(layer.weight.shape)
         layer.weight = nn.Parameter(params)
-        print (f""layer.lipschitz().item())
+        print (f"Prox {lipr_epoch} Layer Lip {layer.lipschitz().item():.2f}")
         test(args, model, device, test_loader, criterion)
         if model.lipschitz() <= 5.:
             break

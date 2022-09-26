@@ -115,7 +115,7 @@ def process_layers(layers, model, train_loader, test_loader,
 
             layer.update()
             
-            params = layer.weight_t.reshape(layer.weight.shape)
+            params = layer.prox_weight.reshape(layer.weight.shape)
             layer.weight = nn.Parameter(params)
             print (layer.lipschitz())
             test(args, model, device, test_loader, criterion)

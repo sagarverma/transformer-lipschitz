@@ -115,10 +115,12 @@ def process_layers(layers, model, train_loader, test_loader,
 
             layer.update()
             
+            old_weight = layer.weight.clone().detach()
             params = layer.prox_weight.reshape(layer.weight.shape)
             layer.weight = nn.Parameter(params)
             print (layer.lipschitz())
             test(args, model, device, test_loader, criterion)
+            layer.weight = nn.Parameter(old_weight)
             if layer.lc <= 5**(1/len(layers)):
                 break 
 

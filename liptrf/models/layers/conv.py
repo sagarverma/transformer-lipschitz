@@ -161,49 +161,49 @@ class Conv2dX(nn.Module):
         self.proj_weight_old = None
         torch.cuda.empty_cache()
 
-torch.manual_seed(0)
-model = Conv2dX(2, 2, 3, padding=1,
-                power_iter=10, lmbda=1, lc_gamma=0.1, lr=1.2, eta=1e-1).cuda()
-inp = torch.ones(64, 2, 32, 32).cuda()
-out = inp * 2
+# torch.manual_seed(0)
+# model = Conv2dX(2, 2, 3, padding=1,
+#                 power_iter=10, lmbda=1, lc_gamma=0.1, lr=1.2, eta=1e-1).cuda()
+# inp = torch.ones(64, 2, 32, 32).cuda()
+# out = inp * 2
 
-crit = nn.MSELoss()
-optim = torch.optim.SGD(model.parameters(), lr=0.1)
+# crit = nn.MSELoss()
+# optim = torch.optim.SGD(model.parameters(), lr=0.1)
 
-for i in range(100):
-    optim.zero_grad()
-    pred = model(inp)
-    loss = crit(pred, out)
-    loss.backward()
-    optim.step()
+# for i in range(100):
+#     optim.zero_grad()
+#     pred = model(inp)
+#     loss = crit(pred, out)
+#     loss.backward()
+#     optim.step()
 
-print (i, loss.item(), model.lipschitz())
+# print (i, loss.item(), model.lipschitz())
 
-model.eval()
+# model.eval()
 
 
-weight_t = model.weight.clone().detach()
-model.weight_t = weight_t.view(weight_t.size(0), -1)
-model.weight_old = model.weight_t.clone().detach()
+# weight_t = model.weight.clone().detach()
+# model.weight_t = weight_t.view(weight_t.size(0), -1)
+# model.weight_old = model.weight_t.clone().detach()
 
-for i in range(100):
-    model.prox()
-    for j in range(2000):
-        # print (f"################# Prox epoch {i} Proj Epoch {j} #################")
-        model.proj_weight_old = model.proj_weight.clone().detach()
-        for b in range(8):
-            pred = model(inp[b*8:(b+1)*8, :])
-            model.proj()
-        if torch.linalg.norm(model.proj_weight - model.proj_weight_old) < 1e-7 * torch.linalg.norm(model.proj_weight):
-            print ('convergence')
-            break 
+# for i in range(100):
+#     model.prox()
+#     for j in range(2000):
+#         # print (f"################# Prox epoch {i} Proj Epoch {j} #################")
+#         model.proj_weight_old = model.proj_weight.clone().detach()
+#         for b in range(8):
+#             pred = model(inp[b*8:(b+1)*8, :])
+#             model.proj()
+#         if torch.linalg.norm(model.proj_weight - model.proj_weight_old) < 1e-7 * torch.linalg.norm(model.proj_weight):
+#             print ('convergence')
+#             break 
     
-    model.update()
-    if torch.linalg.norm(model.weight_t - model.weight_old) < 1e-4 * torch.norm(model.weight_t):
-        print ("prox conv")
-        break
+#     model.update()
+#     if torch.linalg.norm(model.weight_t - model.weight_old) < 1e-4 * torch.norm(model.weight_t):
+#         print ("prox conv")
+#         break
 
-model.weight = nn.Parameter(model.prox_weight.reshape(model.weight.shape))
-pred = model(inp)
-loss = crit(pred, out)
-print (loss.item(), model.lipschitz())
+# model.weight = nn.Parameter(model.prox_weight.reshape(model.weight.shape))
+# pred = model(inp)
+# loss = crit(pred, out)
+# print (loss.item(), model.lipschitz())

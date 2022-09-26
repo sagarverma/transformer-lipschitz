@@ -188,7 +188,6 @@ def main():
     parser.add_argument('--data', default='cifar10', type=str)
     parser.add_argument('--model', default='4c3f_relux', type=str)
     parser.add_argument('--opt', default='adam', type=str)
-    parser.add_argument('--task', default='train', type=str)
     
     parser.add_argument('--train_batch_size', type=int, default=64, metavar='N',
                         help='input batch size for training (default: 64)')

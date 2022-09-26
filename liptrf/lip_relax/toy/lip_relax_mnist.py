@@ -93,6 +93,7 @@ def test(args, model, device, test_loader, criterion):
 def process_layers(layers, model, train_loader, test_loader, 
                     criterion, optimizer, args, device):
 
+    test(args, model, device, test_loader, criterion)
     for layer in layers:
         layer.weight_t = layer.weight.clone().detach()
         if isinstance(layer, Conv2dX):
@@ -104,7 +105,7 @@ def process_layers(layers, model, train_loader, test_loader,
             for proj_epoch in tqdm.tqdm(range(args.proj_epochs)):
                 layer.proj_weight_old = layer.proj_weight.clone().detach()
                     
-                for batch_idx, (data, target) in tqdm.tqdm(enumerate(train_loader)):
+                for batch_idx, (data, target) in enumerate(train_loader):
                     _ = model(data.to(device))
                     layer.proj()
                     

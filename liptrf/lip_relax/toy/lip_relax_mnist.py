@@ -101,34 +101,33 @@ def process_layers(layers, model, train_loader, test_loader,
         for lipr_epoch in range(args.lipr_epochs):
             layer.prox()
         
-            # for proj_epoch in tqdm.tqdm(range(args.proj_epochs)):
-            layer.proj_weight_old = layer.proj_weight.clone().detach()
-                
-            for batch_idx, (data, target) in tqdm.tqdm(enumerate(train_loader)):
-                _ = model(data.to(device))
-                layer.proj()
-                
+            for proj_epoch in tqdm.tqdm(range(args.proj_epochs)):
+                layer.proj_weight_old = layer.proj_weight.clone().detach()
+                    
+                for batch_idx, (data, target) in tqdm.tqdm(enumerate(train_loader)):
+                    _ = model(data.to(device))
+                    layer.proj()
+                    
                 # print (torch.linalg.norm(layer.proj_weight - layer.proj_weight_old, 'fro'), args.proj_prec * torch.linalg.norm(layer.proj_weight, 'fro'))
-                # if torch.linalg.norm(layer.proj_weight - layer.proj_weight_old) < args.proj_prec * torch.linalg.norm(layer.proj_weight):
-                #     break 
+                if torch.linalg.norm(layer.proj_weight - layer.proj_weight_old) < args.proj_prec * torch.linalg.norm(layer.proj_weight):
+                    break 
 
             layer.update()
-            # if torch.linalg.norm(layer.weight_t - layer.weight_old) < args.lipr_prec * torch.norm(layer.weight_t):
-            #     break
-            
-            params = layer.prox_weight.reshape(layer.weight.shape)
-            layer.weight = nn.Parameter(params)
-            print (layer.lipschitz())
-            test(args, model, device, test_loader, criterion)
-            if layer.lipschitz() <= 1. or model.lipschitz() <= 1.:
+            if torch.linalg.norm(layer.weight_t - layer.weight_old) < args.lipr_prec * torch.norm(layer.weight_t):
                 break
-        if model.lipschitz() <= 1.:
+            
+        params = layer.prox_weight.reshape(layer.weight.shape)
+        layer.weight = nn.Parameter(params)
+        print (layer.lipschitz())
+        test(args, model, device, test_loader, criterion)
+        if layer.lipschitz() <= 1. or model.lipschitz() <= 1.:
             break
 
     test(args, model, device, test_loader, criterion)
     print_nonzeros(model)
 
     verified_best = -1
+    verified_best_state = None
     for epoch in range(1, args.epochs + 1):
         train(args, model, device, train_loader,
                 optimizer, epoch, criterion, True)
@@ -136,11 +135,15 @@ def process_layers(layers, model, train_loader, test_loader,
         print_nonzeros(model)
         if verified >= verified_best:
             verified_best = verified
-            pgd = evaluate_pgd(test_loader, model, epsilon=1.58, niter=100, alpha=1.58/4)
+            verified_best_state = model.state_dict()
             weight_path = args.weight_path.replace('.pt', f"_lc_alpha-{args.lc_alpha}_eta-{args.eta}_lc_gamma-{args.lc_gamma}_lr-{args.lr}.pt")
             out_dict = {"weights": model.state_dict(), "clean": clean, "lip": lip, "pgd": pgd, "verified": verified}
-
             torch.save(out_dict, weight_path)
+
+    model.load_sate_dict(verified_best_state)
+    test(args, model, device, test_loader, criterion)
+    pgd = evaluate_pgd(test_loader, model, epsilon=1.58, niter=100, alpha=1.58/4)
+            
 
 def print_nonzeros(model):
     nonzero = total = 0 

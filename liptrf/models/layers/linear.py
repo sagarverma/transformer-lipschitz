@@ -87,7 +87,7 @@ class LinearX(nn.Module):
         z = F.linear(self.inp, self.proj_weight) - self.out
         # print (z.shape)
         if self.relu_after:
-            z[self.out == 0 & z <= 0] = 0
+            z[(self.out == 0) & (z <= 0)] = 0
         fc = torch.sum(z**2, axis=1) - self.eta
         fc = torch.mean(fc)
         # print (f"Norm z: {torch.linalg.norm(z).item()} FC: {fc.item()}")

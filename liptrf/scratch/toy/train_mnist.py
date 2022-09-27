@@ -12,7 +12,7 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 
 from liptrf.models.linear_toy import Net
-from liptrf.models.moderate import MNIST_4C3F_ReLUx, mnist_model_large_relux
+from liptrf.models.moderate import MNIST_4C3F_ReLUx
 
 from liptrf.utils.evaluate import evaluate_pgd
 
@@ -201,8 +201,10 @@ def main():
     if args.task == 'test':
         weight = torch.load(args.weight_path, map_location=device)
         if 'state_dict' in weight.keys():
-            model = mnist_model_large_relux().to(device)
-            model.load_state_dict(weight['state_dict'])
+            layers = list(model.modules())
+            for k in weight['state_dict'].keys():
+                idx, name = k.split(',')
+                layers[int(idx)].__dict__[name] = weight['state_dict'][k]
         else:
             model.load_state_dict(weight)
         model.eval()

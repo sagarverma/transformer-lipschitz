@@ -25,7 +25,13 @@ if __name__ == "__main__":
         os.makedirs(dir)
     train_log = open(args.prefix + "_train.log", "w")
     test_log = open(args.prefix + "_test.log", "w")
-    train_loader, test_loader = data_load.data_loaders(args.data, args.batch_size, args.test_batch_size, augmentation=args.augmentation, normalization=args.normalization, drop_last=args.drop_last, shuffle=args.shuffle)
+    train_loader, test_loader = data_load.data_loaders(args.data_path, args.data, 
+                                                        args.batch_size, 
+                                                        args.test_batch_size, 
+                                                        augmentation=args.augmentation, 
+                                                        normalization=args.normalization, 
+                                                        drop_last=args.drop_last, 
+                                                        shuffle=args.shuffle)
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed(args.seed)
         
@@ -133,11 +139,11 @@ if __name__ == "__main__":
                     'epoch' : t
                     }, f"{args.weight_path}/LocalLip_CIFAR10_{args.model}.pt")
 
-            # torch.save({ 
-            #     'state_dict': model.state_dict(),
-            #     'err' : err,
-            #     'epoch' : t
-            #     }, args.prefix + "_checkpoint.pth")  
+        torch.save({ 
+            'state_dict': model.state_dict(),
+            'err' : err,
+            'epoch' : t
+            }, f"{args.weight_path}/LocalLip_CIFAR10_{args.model}_checkpoint.pt")  
 
     args.print = True
     

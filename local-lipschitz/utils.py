@@ -319,7 +319,7 @@ def cifar100_relux(init=1.0):
         Flatten(),
         nn.Linear(1024, 256),
         ReLU_x(torch.Size([1, 256]), init),
-        nn.Linear(256, 200)
+        nn.Linear(256, 100)
     )
     for m in model.modules():
         if isinstance(m, nn.Conv2d):

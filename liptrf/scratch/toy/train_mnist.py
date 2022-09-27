@@ -1,4 +1,5 @@
 import os 
+import copy
 import argparse 
 import pickle as pkl 
 import numpy as np
@@ -185,7 +186,7 @@ def main():
             scheduler.step()
             if acc > best_acc and epoch >= args.warmup:
                 best_acc = acc
-                best_state = model.state_dict()
+                best_state = copy.deepcopy(model.state_dict())
                 torch.save(model.state_dict(), weight_path)
         
         fout.close() 

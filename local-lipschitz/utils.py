@@ -512,7 +512,8 @@ def evaluate_pgd(loader, model, args):
 
     adversary = L2PGDAttack(
         model, loss_fn=nn.CrossEntropyLoss(reduction="sum"), eps=args.epsilon, 
-        nb_iter=args.niter, eps_iter=args.alpha, rand_init=True, clip_min=0.0, clip_max=1.0, targeted=False)
+        nb_iter=args.niter, eps_iter=args.alpha, rand_init=True, clip_min=0.0,
+         clip_max=1.0, targeted=False)
 
     end = time.time()
     for i, (X,y,idx) in enumerate(loader):

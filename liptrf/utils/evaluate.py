@@ -24,7 +24,8 @@ def evaluate_pgd(loader, model, epsilon, niter, alpha, device):
             X_pgd = adversary.perturb(X, y)
             
         out = model(X_pgd)
-        correct += out.eq(y.view_as(out)).sum().item()
+        pred = out.argmax(dim=1, keepdim=True)
+        correct += pred.eq(y.view_as(pred)).sum().item()
     print(f'PGD Accuracy {100.*correct/len(loader.dataset):.2f}')
 
     return np.mean(accs) * 100

@@ -204,7 +204,7 @@ def main():
             layers = list(model.children())
             for k in weight['state_dict'].keys():
                 print (k)
-                idx, name = k.split(',')
+                idx, name = k.split('.')
                 layers[int(idx)].__dict__[name] = weight['state_dict'][k]
         else:
             model.load_state_dict(weight)

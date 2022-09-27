@@ -60,7 +60,30 @@ def data_loaders(data_path, data, batch_size, test_batch_size,
             trainset = datasets.CIFAR10(root=data_path, train=True, download=True, transform=transforms.ToTensor())
             testset = datasets.CIFAR10(root=data_path, train=False, download=True, transform=transforms.ToTensor())
 
-
+    if data == 'cifar100':
+        if augmentation and normalization:
+            trainset_transforms = transforms.Compose([
+                transforms.RandomCrop(32, padding=4),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761))])
+            trainset = datasets.CIFAR10(root=data_path, train=True, download=True, transform=trainset_transforms)
+            testset = datasets.CIFAR10(root=data_path, train=False, download=True, transform=transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761))]))
+            
+        elif augmentation and not(normalization):
+            trainset_transforms = transforms.Compose([
+                transforms.RandomCrop(32, padding=4),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor()])
+            trainset = datasets.CIFAR100(root=data_path, train=True, download=True, transform=trainset_transforms)
+            testset = datasets.CIFAR100(root=data_path, train=False, download=True, transform=transforms.Compose([
+                transforms.ToTensor()]))
+            
+        else:
+            trainset = datasets.CIFAR100(root=data_path, train=True, download=True, transform=transforms.ToTensor())
+            testset = datasets.CIFAR100(root=data_path, train=False, download=True, transform=transforms.ToTensor())
         
     if data == 'mnist':
         trainset = datasets.MNIST(root=data_path, train=True, download=True, transform=transforms.ToTensor())

@@ -140,6 +140,8 @@ def select_model(data, m, init):
             model = c6f2_clmaxmin().cuda()
         elif m=='c6f2_relu':
             model = c6f2_standrelu().cuda()
+    elif data=='cifar100':
+        model = cifar100_relux().cuda() 
     elif data=='tinyimagenet':
         if m == '8c2f_relux':
             model = tinyimagenet_relux(init=init).cuda()
@@ -287,6 +289,36 @@ def c6f2_clmaxmin(maxthres=0.5, minthres=-0.5):
         nn.Linear(4096,512),
         ClampGroupSort(torch.Size([1, 256]), 1.2, -1.2),
         nn.Linear(512,10)
+    )
+    for m in model.modules():
+        if isinstance(m, nn.Conv2d):
+            n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+            m.weight.data.normal_(0, math.sqrt(2. / n))
+            m.bias.data.zero_()
+    return model
+
+def cifar100_relux(init=1.0): 
+    model = nn.Sequential(
+        nn.Conv2d(3, 64, 3, stride=1, padding=1),
+        ReLU_x(torch.Size([1, 64, 32, 32]), init),
+        nn.Conv2d(64, 64, 3, stride=1, padding=1),
+        ReLU_x(torch.Size([1, 64, 32, 32]), init),
+        nn.Conv2d(64, 64, 4, stride=2),
+        ReLU_x(torch.Size([1, 64, 15, 15]), init),
+        nn.Conv2d(64, 128, 3, stride=1, padding=1),
+        ReLU_x(torch.Size([1, 128, 15, 15]), init),
+        nn.Conv2d(128, 128, 3, stride=1, padding=1),
+        ReLU_x(torch.Size([1, 128, 15, 15]), init),
+        nn.Conv2d(128, 128, 4, stride=2),
+        ReLU_x(torch.Size([1, 128, 6, 6]), init),
+        nn.Conv2d(128, 256, 3, stride=1, padding=1),
+        ReLU_x(torch.Size([1, 256, 6, 6]), init),
+        nn.Conv2d(256, 256, 4, stride=2),
+        ReLU_x(torch.Size([1, 256, 2, 2]), init),
+        Flatten(),
+        nn.Linear(1024, 256),
+        ReLU_x(torch.Size([1, 256]), init),
+        nn.Linear(256, 200)
     )
     for m in model.modules():
         if isinstance(m, nn.Conv2d):

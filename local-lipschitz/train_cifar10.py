@@ -131,17 +131,17 @@ if __name__ == "__main__":
                     'state_dict' : model.state_dict(), 
                     'err' : best_err,
                     'epoch' : t
-                    }, args.prefix + "_best.pth")
+                    }, f"{args.weight_path}/LocalLip_CIFAR10_{args.model}.pt")
 
-            torch.save({ 
-                'state_dict': model.state_dict(),
-                'err' : err,
-                'epoch' : t
-                }, args.prefix + "_checkpoint.pth")  
+            # torch.save({ 
+            #     'state_dict': model.state_dict(),
+            #     'err' : err,
+            #     'epoch' : t
+            #     }, args.prefix + "_checkpoint.pth")  
 
     args.print = True
     
-    trained = torch.load(args.prefix + "_best.pth")['state_dict']
+    trained = torch.load(f"{args.weight_path}/LocalLip_CIFAR10_{args.model}.pt")['state_dict']
     model_eval = utils.select_model(args.data, args.model, args.init)
     model_eval.load_state_dict(trained)
     print('std testing ...')

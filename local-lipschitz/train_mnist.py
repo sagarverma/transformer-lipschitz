@@ -138,7 +138,7 @@ if __name__ == "__main__":
 
     args.print = True
     
-    trained = torch.load(args.prefix + "_best.pth")['state_dict']
+    trained = torch.load(f"{args.weight_path}/LocalLip_MNIST_{args.model}.pt")['state_dict']
     model_eval = utils.select_model(args.data, args.model, args.init)
     model_eval.load_state_dict(trained)
     print('std testing ...')

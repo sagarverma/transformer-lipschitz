@@ -141,7 +141,8 @@ def select_model(data, m, init):
         elif m=='c6f2_relu':
             model = c6f2_standrelu().cuda()
     elif data=='cifar100':
-        model = cifar100_relux().cuda() 
+        if m=='8c2f_relux':
+            model = cifar100_relux().cuda() 
     elif data=='tinyimagenet':
         if m == '8c2f_relux':
             model = tinyimagenet_relux(init=init).cuda()

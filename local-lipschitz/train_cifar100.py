@@ -15,7 +15,7 @@ import utils
 import Local_bound as Local
 
 if __name__ == "__main__":
-    args = utils.argparser(epochs=800, warmup=20, rampup=400, batch_size=256, epsilon_train=0.1551)
+    args = utils.argparser(data='cifar100', epochs=800, warmup=20, rampup=400, batch_size=256, epsilon_train=0.1551)
     print(datetime.now())
     print(args)
     print('saving file to {}'.format(args.prefix))

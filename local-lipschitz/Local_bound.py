@@ -14,7 +14,8 @@ from utils import *
 
 DEBUG = False
 
-def train(loader, model, opt, epsilon, kappa, epoch, log, verbose, args, u_list, u_train, data='mnist'):
+def train(loader, model, opt, epsilon, kappa, epoch, log, 
+         verbose, args, u_list, u_train, data='mnist'):
     batch_time = AverageMeter()
     data_time = AverageMeter()
     losses = AverageMeter()

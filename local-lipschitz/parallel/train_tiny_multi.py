@@ -22,7 +22,7 @@ import torch.distributed as dist
 import torch.utils.data.distributed
 
 if __name__ == "__main__":
-    args = utils.argparser()
+    args = utils.argparser(data='tinyimagenet')
     print(datetime.now())
     print(args)
     print('saving file to {}'.format(args.prefix))

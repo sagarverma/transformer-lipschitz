@@ -110,6 +110,11 @@ def argparser(data='cifar10', model='c6f2_relux',
     parser.add_argument('--dist-url', default='tcp://224.66.41.62:23456', type=str, help='url used to set up distributed training')
     parser.add_argument('--dist-backend', default='nccl', type=str, help='distributed backend')
     
+    parser.add_argument('--data_path', type=str, required=True,
+                        help='data path of MNIST')
+    parser.add_argument('--weight_path', type=str, required=True,
+                        help='weight path of MNIST')
+
     args = parser.parse_args()
     
     args.augmentation = not(args.no_augmentation)
@@ -149,6 +154,9 @@ def select_model(data, m, init):
             model = cifar_model_large_relux().cuda()
         elif m=='c6f2_relux':
             model = c6f2_relux(init=init).cuda()
+    elif data=='cifar100':
+        if m=='8c2f_relux':
+            model = cifar100_relux().cuda() 
     elif data=='tinyimagenet':
         if m == 'tinyimagenet_relux':
             model = tinyimagenet_relux(init=init).cuda()
@@ -230,6 +238,36 @@ def c6f2_relux(init=2.0):
             m.bias.data.zero_()
     return model
 
+def cifar100_relux(init=1.0): 
+    model = nn.Sequential(
+        nn.Conv2d(3, 64, 3, stride=1, padding=1),
+        ReLU_x(torch.Size([1, 64, 32, 32]), init),
+        nn.Conv2d(64, 64, 3, stride=1, padding=1),
+        ReLU_x(torch.Size([1, 64, 32, 32]), init),
+        nn.Conv2d(64, 64, 4, stride=2),
+        ReLU_x(torch.Size([1, 64, 15, 15]), init),
+        nn.Conv2d(64, 128, 3, stride=1, padding=1),
+        ReLU_x(torch.Size([1, 128, 15, 15]), init),
+        nn.Conv2d(128, 128, 3, stride=1, padding=1),
+        ReLU_x(torch.Size([1, 128, 15, 15]), init),
+        nn.Conv2d(128, 128, 4, stride=2),
+        ReLU_x(torch.Size([1, 128, 6, 6]), init),
+        nn.Conv2d(128, 256, 3, stride=1, padding=1),
+        ReLU_x(torch.Size([1, 256, 6, 6]), init),
+        nn.Conv2d(256, 256, 4, stride=2),
+        ReLU_x(torch.Size([1, 256, 2, 2]), init),
+        Flatten(),
+        nn.Linear(1024, 256),
+        ReLU_x(torch.Size([1, 256]), init),
+        nn.Linear(256, 100)
+    )
+    for m in model.modules():
+        if isinstance(m, nn.Conv2d):
+            n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+            m.weight.data.normal_(0, math.sqrt(2. / n))
+            m.bias.data.zero_()
+    return model
+    
 def tinyimagenet_relux(init=1.0): 
     model = nn.Sequential(
         nn.Conv2d(3, 64, 3, stride=1, padding=1),

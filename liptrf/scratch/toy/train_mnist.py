@@ -201,7 +201,7 @@ def main():
     if args.task == 'test':
         weight = torch.load(args.weight_path, map_location=device)
         if 'state_dict' in weight.keys():
-            layers = list(model.modules())
+            layers = list(model.childrens())
             for k in weight['state_dict'].keys():
                 idx, name = k.split(',')
                 layers[int(idx)].__dict__[name] = weight['state_dict'][k]

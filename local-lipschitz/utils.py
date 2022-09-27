@@ -90,6 +90,10 @@ def argparser(data='cifar10', model='c6f2_relux',
     parser.add_argument('--drop_last', action='store_true')
     parser.add_argument('--no_shuffle', action='store_true')
 
+    parser.add_argument('--data_path', type=str, required=True,
+                        help='data path of MNIST')
+    parser.add_argument('--weight_path', type=str, required=True,
+                        help='weight path of MNIST')
     
     args = parser.parse_args()
     
@@ -123,21 +127,21 @@ def argparser(data='cifar10', model='c6f2_relux',
 
 def select_model(data, m, init): 
     if data=='mnist':
-        if m=='relux':
+        if m=='4c3f_relux':
             model = mnist_model_large_relux().cuda()
-        elif m=='standrelu':
+        elif m=='4c3f_relu':
             model = mnist_model_large_standrelu().cuda()
     elif data=='cifar10':
-        if m=='relux':
+        if m=='4c3f_relux':
             model = cifar_model_large_relux().cuda()
         elif m=='c6f2_relux':
             model = c6f2_relux(init=init).cuda()
         elif m=='c6f2_clmaxmin':
             model = c6f2_clmaxmin().cuda()
-        elif m=='standrelu':
+        elif m=='c6f2_relu':
             model = c6f2_standrelu().cuda()
     elif data=='tinyimagenet':
-        if m == 'tinyimagenet_relux':
+        if m == '8c2f_relux':
             model = tinyimagenet_relux(init=init).cuda()
     return model
 

@@ -11,7 +11,7 @@ from advertorch.context import ctx_noparamgrad_and_eval
 
 def evaluate_pgd(loader, model, epsilon, niter, alpha, device):
     model.eval()
-    accs = []
+    correct = 0
     print (epsilon, niter, alpha)
 
     adversary = L2PGDAttack(
@@ -24,9 +24,8 @@ def evaluate_pgd(loader, model, epsilon, niter, alpha, device):
             X_pgd = adversary.perturb(X, y)
             
         out = model(X_pgd)
-        acc = 1 - ((out.data.max(1)[1] != y).float().sum() / X.size(0))
-        accs.append(acc.data.cpu().item())
-    print(f'PGD Accuracy {np.mean(accs) * 100:.2f}')
+        correct += out.eq(y.view_as(out)).sum().item()
+    print(f'PGD Accuracy {100.*correct/len(loader.dataset):.2f}')
 
     return np.mean(accs) * 100
 

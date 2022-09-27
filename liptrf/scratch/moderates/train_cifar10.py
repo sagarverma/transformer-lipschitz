@@ -66,7 +66,7 @@ def test(args, model, device, test_loader, criterion):
 
         # print (output.max())
         one_hot = F.one_hot(target, num_classes=output.shape[-1])
-        worst_logit = output + 2**0.5 * 1.58 * lip * (1 - one_hot)
+        worst_logit = output + 2**0.5 * 36/255 * lip * (1 - one_hot)
         worst_pred = worst_logit.argmax(dim=1, keepdim=True)
         verified += worst_pred.eq(target.view_as(worst_pred)).sum().item()
 
@@ -209,14 +209,14 @@ def main():
         model.load_state_dict(best_state)
         model.eval()
         test(args, model, device, test_loader, criterion)
-        evaluate_pgd(test_loader, model, epsilon=36/255, niter=20, alpha=36/255/4, device=device)
+        evaluate_pgd(test_loader, model, epsilon=36/255, niter=100, alpha=36/255/4, device=device)
 
     if args.task == 'test':
         weight = torch.load(args.weight_path, map_location=device)
         model.load_state_dict(weight, strict=False)
         model.eval()
         test(args, model, device, test_loader, criterion)
-        evaluate_pgd(test_loader, model, epsilon=36/255, niter=20, alpha=36/255/4, device=device)
+        evaluate_pgd(test_loader, model, epsilon=36/255, niter=100, alpha=36/255/4, device=device)
 
 if __name__ == '__main__':
     main()

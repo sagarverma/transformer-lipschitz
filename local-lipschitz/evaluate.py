@@ -18,7 +18,7 @@ if __name__ == "__main__":
     args = utils.argparser()
     print(datetime.now())
     print(args)
-    _, test_loader = data_load.data_loaders(args.data, args.batch_size, args.test_batch_size, augmentation=args.augmentation, normalization=args.normalization, drop_last=args.drop_last, shuffle=args.shuffle)
+    _, test_loader = data_load.data_loaders(args.data_path, args.data, args.batch_size, args.test_batch_size, augmentation=args.augmentation, normalization=args.normalization, drop_last=args.drop_last, shuffle=args.shuffle)
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed(args.seed)
     test_log = open("test.log", "w")
@@ -28,7 +28,7 @@ if __name__ == "__main__":
     args.print = True
     u_list = None
         
-    aa = torch.load(args.saved_model + "_best.pth")['state_dict']
+    aa = torch.load(args.weight_path)['state_dict']
     model = utils.select_model(args.data, args.model, args.init) 
     model.load_state_dict(aa)
     

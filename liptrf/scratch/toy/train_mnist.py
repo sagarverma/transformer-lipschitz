@@ -200,7 +200,10 @@ def main():
 
     if args.task == 'test':
         weight = torch.load(args.weight_path, map_location=device)
-        model.load_state_dict(weight)
+        if 'state_dict' in weight.keys():
+            model.load_state_dict(weight['state_dict'])
+        else:
+            model.load_state_dict(weight)
         model.eval()
         test(args, model, device, test_loader, criterion)
         evaluate_pgd(test_loader, model, epsilon=1.58, niter=100, alpha=1.58/4, device=device)

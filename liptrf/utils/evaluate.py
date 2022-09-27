@@ -12,6 +12,7 @@ from advertorch.context import ctx_noparamgrad_and_eval
 def evaluate_pgd(loader, model, epsilon, niter, alpha, device):
     model.eval()
     accs = []
+    print (epsilon, niter, alpha)
 
     adversary = L2PGDAttack(
         model, loss_fn=nn.CrossEntropyLoss(reduction="sum"), eps=epsilon, 

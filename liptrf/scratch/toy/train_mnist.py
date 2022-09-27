@@ -193,7 +193,7 @@ def main():
         model.load_state_dict(best_state)
         model.eval()
         test(args, model, device, test_loader, criterion)
-        evaluate_pgd(test_loader, model, epsilon=1.58, niter=20, alpha=1.58/4)
+        evaluate_pgd(test_loader, model, epsilon=1.58, niter=100, alpha=1.58/4)
 
 
 
@@ -202,7 +202,7 @@ def main():
         model.load_state_dict(weight)
         model.eval()
         test(args, model, device, test_loader, criterion)
-        evaluate_pgd(test_loader, model, epsilon=1.58, niter=20, alpha=1.58/4, device=device)
+        evaluate_pgd(test_loader, model, epsilon=1.58, niter=100, alpha=1.58/4, device=device)
 
 if __name__ == '__main__':
     main()

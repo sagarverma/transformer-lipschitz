@@ -37,6 +37,30 @@ class ClampGroupSort(nn.Module):
         a, b = torch.min(torch.max(a, b), self.max), torch.max(torch.min(a, b), self.min)
         return torch.cat([a, b], dim=1)
 
+def mnist_model_large_relux(): 
+    model = nn.Sequential(
+        nn.Conv2d(1, 32, 3, stride=1, padding=1),
+        ReLU_x(torch.Size([1, 32, 28, 28])),
+        nn.Conv2d(32, 32, 4, stride=2, padding=1),
+        ReLU_x(torch.Size([1, 32, 14, 14])),
+        nn.Conv2d(32, 64, 3, stride=1, padding=1),
+        ReLU_x(torch.Size([1, 64, 14, 14])),
+        nn.Conv2d(64, 64, 4, stride=2, padding=1),
+        ReLU_x(torch.Size([1, 64, 7, 7])),
+        Flatten(),
+        nn.Linear(64*7*7,512),
+        ReLU_x(torch.Size([1, 512])),
+        nn.Linear(512,512),
+        ReLU_x(torch.Size([1, 512])),
+        nn.Linear(512,10)
+    )
+    for m in model.modules():
+        if isinstance(m, nn.Conv2d):
+            n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+            m.weight.data.normal_(0, math.sqrt(2. / n))
+            m.bias.data.zero_()
+    return model
+    
 class MNIST_4C3F_ReLUx(nn.Module):
     
     def __init__(self, 

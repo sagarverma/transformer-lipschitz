@@ -12,7 +12,7 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 
 from liptrf.models.linear_toy import Net
-from liptrf.models.moderate import MNIST_4C3F_ReLUx, ReLU_x, Flatten
+from liptrf.models.moderate import MNIST_4C3F_ReLUx, mnist_model_large_relux
 
 from liptrf.utils.evaluate import evaluate_pgd
 
@@ -201,22 +201,7 @@ def main():
     if args.task == 'test':
         weight = torch.load(args.weight_path, map_location=device)
         if 'state_dict' in weight.keys():
-            model = nn.Sequential(
-                nn.Conv2d(3, 32, 3, stride=1, padding=1),
-                ReLU_x(torch.Size([1, 32, 32, 32])),
-                nn.Conv2d(32, 32, 4, stride=2, padding=1),
-                ReLU_x(torch.Size([1, 32, 16, 16])),
-                nn.Conv2d(32, 64, 3, stride=1, padding=1),
-                ReLU_x(torch.Size([1, 64, 16, 16])),
-                nn.Conv2d(64, 64, 4, stride=2, padding=1),
-                ReLU_x(torch.Size([1, 64, 8, 8])),
-                Flatten(),
-                nn.Linear(64*8*8,512),
-                ReLU_x(torch.Size([1, 512])),
-                nn.Linear(512,512),
-                ReLU_x(torch.Size([1, 512])),
-                nn.Linear(512,10)
-            )().to(device)
+            model = mnist_model_large_relux().to(device)
             model.load_state_dict(weight['state_dict'])
         else:
             model.load_state_dict(weight)

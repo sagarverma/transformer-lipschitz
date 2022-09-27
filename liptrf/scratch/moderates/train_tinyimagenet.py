@@ -98,6 +98,7 @@ def main():
     parser.add_argument('--relax', action='store_true')
     parser.add_argument('--lmbda', type=float, default=1.)
     parser.add_argument('--warmup', type=int, default=0)
+    parser.add_argument('--power_iter', type=int, default=10)
 
     parser.add_argument('--batch_size', type=int, default=64, metavar='N',
                         help='input batch size for training (default: 64)')
@@ -146,7 +147,7 @@ def main():
         testset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
 
     if args.model == '8c2f_relux':
-        model = TinyImageNet_8C2F_ReLUx(lmbda=args.lmbda).to(device)
+        model = TinyImageNet_8C2F_ReLUx(lmbda=args.lmbda, power_iter=args.power_iter).to(device)
 
     criterion = nn.CrossEntropyLoss()
     if args.opt == 'adam': 

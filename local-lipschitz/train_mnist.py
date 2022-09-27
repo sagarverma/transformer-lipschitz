@@ -130,11 +130,11 @@ if __name__ == "__main__":
                     'epoch' : t
                     }, f"{args.weight_path}/LocalLip_MNIST_{args.model}.pt")
 
-            torch.save({ 
-                'state_dict': model.state_dict(),
-                'err' : err,
-                'epoch' : t
-                }, f"{args.weight_path}/LocalLip_MNIST_{args.model}_checkpoint.pt")  
+        torch.save({ 
+            'state_dict': model.state_dict(),
+            'err' : err,
+            'epoch' : t
+            }, f"{args.weight_path}/LocalLip_MNIST_{args.model}_checkpoint.pt")  
 
     args.print = True
     

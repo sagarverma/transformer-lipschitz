@@ -14,7 +14,7 @@ from utils import *
 
 DEBUG = False
 
-def train(loader, model, opt, epsilon, kappa, epoch, log, verbose, args, u_list, u_train):
+def train(loader, model, opt, epsilon, kappa, epoch, log, verbose, args, u_list, u_train, data='mnist'):
     batch_time = AverageMeter()
     data_time = AverageMeter()
     losses = AverageMeter()
@@ -47,7 +47,9 @@ def train(loader, model, opt, epsilon, kappa, epoch, log, verbose, args, u_list,
                 u_train_data.append(None)
 
         # robust loss
-        local_loss, local_err, u_list, u_train_idx = robust_loss(net_local, epsilon1, X, y, u_list, u_train_data, args.sniter, args.opt_iter, gloro=args.gloro)
+        local_loss, local_err, u_list, u_train_idx = robust_loss(net_local, epsilon1, X, y, u_list, 
+                                                                u_train_data, args.sniter, args.opt_iter, 
+                                                                gloro=args.gloro, data=data)
         
         for ll in range(len(u_train)):
             if u_train_idx[ll] is not None:
@@ -104,7 +106,7 @@ def train(loader, model, opt, epsilon, kappa, epoch, log, verbose, args, u_list,
     return u_list, u_train, robust_losses.avg, robust_errors.avg, losses.avg, errors.avg
 
 
-def evaluate(loader, model, epsilon, epoch, log, verbose, args, u_list, u_test, save_u=True):
+def evaluate(loader, model, epsilon, epoch, log, verbose, args, u_list, u_test, save_u=True, data='mnist'):
     # save_u: save singular vector for each sample in the test set
 
     batch_time = AverageMeter()
@@ -134,7 +136,10 @@ def evaluate(loader, model, epsilon, epoch, log, verbose, args, u_list, u_test, 
         else: # do not need to use saved u in the real testing time
             u_test_data = []
                         
-        local_loss, local_err, u_list, u_test_idx = robust_loss(net_local, epsilon, X, y, u_list, u_test_data, args.test_sniter, args.test_opt_iter, show=args.print, gloro=args.gloro)
+        local_loss, local_err, u_list, u_test_idx = robust_loss(net_local, epsilon, X, y, 
+                                                               u_list, u_test_data, args.test_sniter, 
+                                                               args.test_opt_iter, show=args.print, 
+                                                               gloro=args.gloro, data=data)
             
         if save_u:
             for ll in range(len(u_test)):
@@ -183,9 +188,12 @@ def evaluate(loader, model, epsilon, epoch, log, verbose, args, u_list, u_test, 
     
     return u_test, robust_errors.avg, robust_losses.avg, losses.avg, errors.avg
 
-def robust_loss(net_local, epsilon, X, y, u_list=None, u_data=None, sniter=1, opt_iter=1, show=False, gloro=False):
+def robust_loss(net_local, epsilon, X, y, u_list=None, u_data=None, sniter=1, opt_iter=1, show=False, gloro=False, data='mnist'):
     mu, mu_prev, r_prev, ibp_mu, ibp_mu_prev, ibp_r_prev, W, u_list, u_data = net_local(X, epsilon, u_list, u_data, sniter)
-    onehot_y = one_hot(y)
+    depth = 10
+    if data=='cifar100':
+        depth = 100
+    onehot_y = one_hot(y, depth=depth)
     bcp_translation = BCP_translation(mu_prev, r_prev, ibp_mu_prev, ibp_r_prev, W, opt_iter, show)
     bcp_translation[bcp_translation!=bcp_translation]=0
     if gloro:                        

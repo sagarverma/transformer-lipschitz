@@ -113,10 +113,15 @@ if __name__ == "__main__":
             _ = utils.evaluate(test_loader, model, t, test_log, args.verbose)
         elif args.warmup <= t:
             st = time.time()
-            u_list, u_train, robust_losses_train, robust_errors_train, losses_train, errors_train = Local.train(train_loader, model, opt, epsilon, kappa, t, train_log, args.verbose, args, u_list, u_train)
+            u_list, u_train, robust_losses_train, robust_errors_train, losses_train, errors_train = Local.train(train_loader, model, opt, 
+                                                                                                                epsilon, kappa, t, train_log, 
+                                                                                                                args.verbose, args, u_list, 
+                                                                                                                u_train, data='cifar100')
             print('Taken', time.time()-st, 's/epoch')
             
-            u_test, err, robust_losses_test, losses_test, errors_test = Local.evaluate(test_loader, model, epsilon_next, t, test_log, args.verbose, args, u_list, u_test)
+            u_test, err, robust_losses_test, losses_test, errors_test = Local.evaluate(test_loader, model, epsilon_next, t, 
+                                                                                        test_log, args.verbose, args, u_list, u_test,
+                                                                                        data='cifar100')
                        
         if args.lr_scheduler == 'step': 
             if max(t - (args.rampup + args.warmup - 1) + 1, 0):

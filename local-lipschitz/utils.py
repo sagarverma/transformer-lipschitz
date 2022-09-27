@@ -419,7 +419,7 @@ class ClampGroupSort(nn.Module):
         a, b = torch.min(torch.max(a, b), self.max), torch.max(torch.min(a, b), self.min)
         return torch.cat([a, b], dim=1)
 
-def one_hot(batch,depth=10):
+def one_hot(batch, depth=10):
     ones = torch.eye(depth, device=batch.device)
     return ones.index_select(0,batch)
 

@@ -244,6 +244,37 @@ def cnn_8C2F(
 
     return x, y
 
+def cifar100_cnn_8C2F(
+    input_shape, 
+    num_classes, 
+    pooling='conv', 
+    activation='relu',
+    initialization='orthogonal',
+):
+    x = Input(input_shape)
+    z = Conv2D(64, 3, padding='same', kernel_initializer=initialization)(x)
+    z = _add_activation(z, activation)
+    z = Conv2D(64, 3, padding='same', kernel_initializer=initialization)(z)
+    z = _add_activation(z, activation)
+    z = _add_pool(z, pooling, activation, initialization)
+
+    z = Conv2D(128, 3, padding='same', kernel_initializer=initialization)(z)
+    z = _add_activation(z, activation)
+    z = Conv2D(128, 3, padding='same', kernel_initializer=initialization)(z)
+    z = _add_activation(z, activation)
+    z = _add_pool(z, pooling, activation, initialization)
+
+    z = Conv2D(256, 3, padding='same', kernel_initializer=initialization)(z)
+    z = _add_activation(z, activation)
+    z = _add_pool(z, pooling, activation, initialization)
+
+    z = Flatten()(z)
+    z = Dense(256, kernel_initializer=initialization)(z)
+    z = _add_activation(z, activation)
+    y = Dense(num_classes, kernel_initializer=initialization)(z)
+
+    return x, y
+
 def minmax_cnn_8C2F(
     input_shape, 
     num_classes, 

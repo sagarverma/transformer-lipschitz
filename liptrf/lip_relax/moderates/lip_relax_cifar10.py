@@ -101,8 +101,8 @@ def process_layers(layers, model, train_loader, test_loader,
         for lipr_epoch in range(args.lipr_epochs):
             layer.prox()
 
-            if layer.lipschitz() <= 1:
-                break
+            # if layer.lipschitz() <= 1:
+            #     break
         
             for proj_epoch in tqdm.tqdm(range(args.proj_epochs)):
                 layer.proj_weight_old = layer.proj_weight.clone().detach()
@@ -126,8 +126,8 @@ def process_layers(layers, model, train_loader, test_loader,
             print (f"Prox {lipr_epoch} Proj {proj_epoch} Layer Lip {layer.lipschitz().item():.2f}")
             test(args, model, device, test_loader, criterion)
             layer.weight = nn.Parameter(old_weight)
-            if layer.lc <= 1:
-                break 
+            # if layer.lc <= 1:
+            #     break 
 
             if torch.linalg.norm(layer.weight_t - layer.weight_old) < args.lipr_prec * torch.norm(layer.weight_t):
                 break
@@ -145,7 +145,7 @@ def process_layers(layers, model, train_loader, test_loader,
         optimizer = optim.SGD(model.parameters(), lr=0.1, 
                         momentum=0.9,
                         weight_decay=0.0) 
-                        
+
     verified_best = -1
     verified_best_state = None
     for epoch in range(1, args.epochs + 1):

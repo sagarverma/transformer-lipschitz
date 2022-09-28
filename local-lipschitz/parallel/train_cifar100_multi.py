@@ -67,7 +67,7 @@ if __name__ == "__main__":
     # compute the feature size at each layer
     input_size = []
     depth = len(model)
-    x = torch.randn(1,3,64,64).cuda()
+    x = torch.randn(1, 3, 32, 32).cuda()
     for i, layer in enumerate(model.children()):
         if i < depth-1:
             input_size.append(x.size()[1:])

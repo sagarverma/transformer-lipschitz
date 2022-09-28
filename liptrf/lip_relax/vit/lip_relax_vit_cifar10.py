@@ -152,7 +152,7 @@ def process_layers(layers, model, train_loader, test_loader,
     for epoch in range(1, args.epochs + 1):
         train(args, model, device, train_loader,
                 optimizer, epoch, criterion, True)
-        test(args, model, device, test_loader, criterion)
+        clean, verified, lip = test(args, model, device, test_loader, criterion)
         weight_path = args.weight_path.replace('.pt', f"_lc_alpha-{args.lc_alpha}_eta-{args.eta}_lc_gamma-{args.lc_gamma}_lr-{args.lr}_checkpoint.pt")
         torch.save(model.state_dict(), weight_path)
         print_nonzeros(model)

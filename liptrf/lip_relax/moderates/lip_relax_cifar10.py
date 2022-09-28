@@ -158,14 +158,13 @@ def process_layers(layers, model, train_loader, test_loader,
         if verified >= verified_best:
             verified_best = verified
             verified_best_state = copy.deepcopy(model.state_dict())
-            pgd = evaluate_pgd(test_loader, model, epsilon=1.58, niter=100, alpha=1.58/4, device=device)
-            weight_path = args.weight_path.replace('.pt', f"_lc_alpha-{args.lc_alpha}_eta-{args.eta}_lc_gamma-{args.lc_gamma}_lr-{args.lr}.pt")
-            out_dict = {"weights": model.state_dict(), "clean": clean, "lip": lip, "pgd": pgd, "verified": verified}
-            torch.save(out_dict, weight_path)
-
+            
     model.load_state_dict(verified_best_state)
-    test(args, model, device, test_loader, criterion)
+    clean, verified, lip = test(args, model, device, test_loader, criterion)
     pgd = evaluate_pgd(test_loader, model, epsilon=36/255, niter=100, alpha=36/255/4, device=device)
+    weight_path = args.weight_path.replace('.pt', f"_lc_alpha-{args.lc_alpha}_eta-{args.eta}_lc_gamma-{args.lc_gamma}_lr-{args.lr}.pt")
+    out_dict = {"weights": model.state_dict(), "clean": clean, "lip": lip, "pgd": pgd, "verified": verified}
+    torch.save(out_dict, weight_path)
 
 def print_nonzeros(model):
     nonzero = total = 0 

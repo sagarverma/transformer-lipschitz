@@ -1,6 +1,9 @@
 #!/bin/bash
 
 ###### Training ######
+# train CIFAR100-ReLUX on 4 GPUs, Local bound + BCP loss
+python -m torch.distributed.launch --nproc_per_node=4 train_cifar100_multi.py --warmup 0 --model 8c2f_relux --batch_size 32 --rampup 125 --sniter 1 --init 1.0 --epochs 250 --sparse 0.01 --indices 0,6,12,14,17 --data cifar100 --test_batch_size 32 --epsilon_train 0.16 --lr 2.5e-4 --lr_scheduler exp 
+
 
 # train Tinyimagenet-ReLU on 4 GPUs, Local bound + BCP loss
 python -m torch.distributed.launch --nproc_per_node=4 train_tiny_multi.py --warmup 0 --model tinyimagenet_relux --batch_size 32 --rampup 125 --sniter 1 --init 1.0 --epochs 250 --sparse 0.01 --indices 0,6,12,14,17 --data tinyimagenet --test_batch_size 32 --epsilon_train 0.16 --lr 2.5e-4 --lr_scheduler exp --prefix 'relu/tiny_8C2F'

@@ -56,7 +56,9 @@ if __name__ == "__main__":
     
     utils.seed_torch(args.seed)
 
-    train_loader, test_loader = data_load.data_loaders(args.data, args.batch_size, args.test_batch_size, augmentation=args.augmentation, normalization=args.normalization, drop_last=args.drop_last, shuffle=args.shuffle)
+    train_loader, test_loader = data_load.data_loaders(args.data_path, args.data, args.batch_size, args.test_batch_size, 
+                                                        augmentation=args.augmentation, normalization=args.normalization, 
+                                                        drop_last=args.drop_last, shuffle=args.shuffle)
         
     best_err = 1
     err = 1

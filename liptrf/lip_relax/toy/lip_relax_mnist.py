@@ -135,9 +135,9 @@ def process_layers(layers, model, train_loader, test_loader,
             if torch.linalg.norm(layer.weight_t - layer.weight_old) < args.lipr_prec * torch.norm(layer.weight_t):
                 break
 
-    for layer in layers:
-        params = layer.prox_weight.reshape(layer.weight.shape)
-        layer.weight = nn.Parameter(params)
+    # for layer in layers:
+    #     params = layer.prox_weight.reshape(layer.weight.shape)
+    #     layer.weight = nn.Parameter(params)
     
     test(args, model, device, test_loader, criterion)
     print_nonzeros(model)

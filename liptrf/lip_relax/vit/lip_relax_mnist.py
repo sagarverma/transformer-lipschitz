@@ -200,6 +200,7 @@ def main():
     parser.add_argument('--proj_prec', default=1e-7, type=float)
     parser.add_argument('--epochs', default=10, type=int)
     
+    parser.add_argument('--task', default='constrain', type=str)
     parser.add_argument('--train_batch_size', type=int, default=64, metavar='N',
                         help='input batch size for training (default: 64)')
     parser.add_argument('--test_batch_size', type=int, default=64, metavar='N',

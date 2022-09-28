@@ -87,7 +87,8 @@ class Conv2dX(nn.Module):
         wt = torch.abs(self.weight_t)
         wt_nz = wt.flatten()
         wt_nz = wt_nz[torch.nonzero(wt_nz)]
-        wt = wt - torch.quantile(wt_nz, self.lc_gamma)
+        wt[wt < torch.quantile(wt_nz, self.lc_gamma)] = 0
+        wt[wt >= torch.quantile(wt_nz, self.lc_gamma)] -= self.lc_alpha
         self.prox_weight = ((wt * (wt > 0)) * torch.sign(self.weight_t)).clone().detach()
         
         

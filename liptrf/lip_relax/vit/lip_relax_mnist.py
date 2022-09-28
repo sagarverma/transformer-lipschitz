@@ -88,7 +88,7 @@ def test(args, model, device, test_loader, criterion):
           f"Error: {(test_samples-correct)/test_samples * 100:.2f}% " +
           f"Lipschitz {model.lipschitz():4f}")
     
-    return 100.*verified/test_samples
+    return 100.*verified/test_samples, 100.*verified/test_samples, lip
 
 def process_layers(layers, model, train_loader, test_loader, 
                     criterion, optimizer, args, device):

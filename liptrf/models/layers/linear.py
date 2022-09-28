@@ -43,7 +43,7 @@ class LinearX(nn.Module):
             self.out -= grad_output[0]
 
         self.register_forward_hook(hook) 
-        self.register_backward_hook(back_hook)
+        # self.register_backward_hook(back_hook)
 
     def forward(self, x):
         return F.linear(x, self.weight, self.bias)

@@ -142,6 +142,13 @@ def process_layers(layers, model, train_loader, test_loader,
     test(args, model, device, test_loader, criterion)
     print_nonzeros(model)
 
+    if args.opt == 'adam': 
+        optimizer = optim.Adam(model.parameters(), lr=1e-3)
+    elif args.opt == 'sgd': 
+        optimizer = optim.SGD(model.parameters(), lr=0.1, 
+                        momentum=0.9,
+                        weight_decay=0.0) 
+                        
     verified_best = -1
     verified_best_state = None
     for epoch in range(1, args.epochs + 1):

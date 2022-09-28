@@ -153,7 +153,7 @@ def process_layers(layers, model, train_loader, test_loader,
                 optimizer, epoch, criterion, True)
         clean, verified, lip = test(args, model, device, test_loader, criterion)
         weight_path = args.weight_path.replace('.pt', f"_lc_alpha-{args.lc_alpha}_eta-{args.eta}_lc_gamma-{args.lc_gamma}_lr-{args.lr}_checkpoint.pt")
-        torch.save(out_dict, weight_path)
+        torch.save(model.state_dict(), weight_path)
         print_nonzeros(model)
         if verified >= verified_best:
             verified_best = verified

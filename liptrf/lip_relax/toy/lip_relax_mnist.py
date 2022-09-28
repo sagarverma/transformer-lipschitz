@@ -1,4 +1,5 @@
 import os 
+import copy
 import argparse 
 import pickle as pkl 
 import numpy as np
@@ -28,7 +29,7 @@ def train(args, model, device, train_loader,
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
-        output = model.forward(data)
+        output = model(data)
         loss = criterion(output, target)
         loss.backward()
         train_loss += loss.item()
@@ -62,7 +63,7 @@ def test(args, model, device, test_loader, criterion):
     # with torch.no_grad():
     for data, target in test_loader:
         data, target = data.to(device), target.to(device)
-        output = model.forward(data)
+        output = model(data)
         
         test_loss += criterion(output, target).item()  # sum up batch loss
         pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log_probability
@@ -133,13 +134,6 @@ def process_layers(layers, model, train_loader, test_loader,
 
             if torch.linalg.norm(layer.weight_t - layer.weight_old) < args.lipr_prec * torch.norm(layer.weight_t):
                 break
-            
-        # params = layer.prox_weight.reshape(layer.weight.shape)
-        # layer.weight = nn.Parameter(params)
-        # print (f"Prox {lipr_epoch} Layer Lip {layer.lipschitz().item():.2f}")
-        # test(args, model, device, test_loader, criterion)
-        # if model.lipschitz() <= 4.:
-        #     break
 
     for layer in layers:
         params = layer.prox_weight.reshape(layer.weight.shape)
@@ -157,7 +151,7 @@ def process_layers(layers, model, train_loader, test_loader,
         print_nonzeros(model)
         if verified >= verified_best:
             verified_best = verified
-            verified_best_state = model.state_dict()
+            verified_best_state = copy.deepcopy(model.state_dict())
             pgd = evaluate_pgd(test_loader, model, epsilon=1.58, niter=100, alpha=1.58/4, device=device)
             weight_path = args.weight_path.replace('.pt', f"_lc_alpha-{args.lc_alpha}_eta-{args.eta}_lc_gamma-{args.lc_gamma}_lr-{args.lr}.pt")
             out_dict = {"weights": model.state_dict(), "clean": clean, "lip": lip, "pgd": pgd, "verified": verified}

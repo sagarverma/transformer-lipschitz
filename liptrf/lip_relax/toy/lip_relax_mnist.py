@@ -272,7 +272,7 @@ def main():
                 layers.append(layer)
 
         print_nonzeros(model)
-        process_layers(layers[:-1], model, train_loader, test_loader, 
+        process_layers(layers, model, train_loader, test_loader, 
                         criterion, optimizer, args, device)
 
     if args.task == 'test':

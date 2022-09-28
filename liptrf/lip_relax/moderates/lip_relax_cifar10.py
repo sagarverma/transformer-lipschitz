@@ -1,4 +1,5 @@
 import tqdm
+import copy
 import argparse 
 from operator import itemgetter
 

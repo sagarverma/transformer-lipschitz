@@ -152,7 +152,7 @@ def process_layers(layers, model, train_loader, test_loader,
     verified_best_state = None
     for epoch in range(1, args.epochs + 1):
         train(args, model, device, train_loader,
-                optimizer, epoch, criterion, True)
+                optimizer, epoch, criterion, False)
         clean, verified, lip = test(args, model, device, test_loader, criterion)
         print_nonzeros(model)
         if verified >= verified_best:

@@ -213,7 +213,14 @@ def main():
 
     if args.task == 'test':
         weight = torch.load(args.weight_path, map_location=device)
-        model.load_state_dict(weight, strict=False)
+        if 'state_dict' in weight.keys():
+            layers = list(model.children())
+            for k in weight['state_dict'].keys():
+                # print (k)
+                idx, name = k.split('.')
+                layers[int(idx)].__dict__[name] = weight['state_dict'][k]
+        else:
+            model.load_state_dict(weight)
         model.eval()
         test(args, model, device, test_loader, criterion)
         evaluate_pgd(test_loader, model, epsilon=36/255, niter=100, alpha=36/255/4, device=device)

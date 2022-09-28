@@ -149,10 +149,12 @@ if __name__ == "__main__":
             _ = utils.evaluate(test_loader, model, t, test_log, args.verbose)
         elif args.warmup <= t:
             st = time.time()
-            u_list, u_train, robust_losses_train, robust_errors_train, losses_train, errors_train, sparse_loss_train = Local.train(train_loader, model, opt, epsilon, kappa, t, train_log, args.verbose, args, u_list, u_train, global_rank)
+            train_out = Local.train(train_loader, model, opt, epsilon, kappa, t, train_log, args.verbose, args, u_list, u_train, global_rank, data='cifar100')
+            u_list, u_train, robust_losses_train, robust_errors_train, losses_train, errors_train, sparse_loss_train = train_out
             print('Taken', time.time()-st, 's/epoch')
             
-            u_test, err, robust_losses_test, losses_test, errors_test, sparse_loss_test = Local.evaluate(test_loader, model, epsilon_next, t, test_log, args.verbose, args, u_list, u_test, global_rank)
+            val_out = Local.evaluate(test_loader, model, epsilon_next, t, test_log, args.verbose, args, u_list, u_test, global_rank, data='cifar100')
+            u_test, err, robust_losses_test, losses_test, errors_test, sparse_loss_test = val_out
             torch.cuda.empty_cache()
                        
         if args.lr_scheduler == 'step': 
@@ -197,5 +199,6 @@ if __name__ == "__main__":
     print('pgd testing ...')
     pgd_err = utils.evaluate_pgd(test_loader, model_eval, args)
     print('verification testing ...')
-    u_test, last_err, robust_losses_test, losses_test, errors_test, sparse_loss_test = Local.evaluate(test_loader, model_eval, args.epsilon, t, test_log, args.verbose, args, u_list, u_test, global_rank)  
+    val_out = Local.evaluate(test_loader, model_eval, args.epsilon, t, test_log, args.verbose, args, u_list, u_test, global_rank, data='cifar100')  
+    u_test, last_err, robust_losses_test, losses_test, errors_test, sparse_loss_test = val_out
     print('Best model evaluation:', std_err, pgd_err, last_err)

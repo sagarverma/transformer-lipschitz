@@ -148,7 +148,7 @@ def process_layers(layers, model, train_loader, test_loader,
         optimizer = optim.SGD(model.parameters(), lr=0.1, 
                         momentum=0.9,
                         weight_decay=0.0) 
-                        
+
     verified_best = -1
     verified_best_state = None
     for epoch in range(1, args.epochs + 1):
@@ -236,7 +236,7 @@ def main():
     else:
         transform=transforms.Compose([
             transforms.ToTensor(),
-            # transforms.Normalize((0.1307,), (0.3081,))
+            transforms.Normalize((0.1307,), (0.3081,))
             ])
     dataset1 = datasets.MNIST(args.data_path, train=True, download=True,
                        transform=transform)

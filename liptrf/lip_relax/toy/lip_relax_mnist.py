@@ -235,7 +235,7 @@ def main():
     else:
         transform=transforms.Compose([
             transforms.ToTensor(),
-            transforms.Normalize((0.1307,), (0.3081,))
+            # transforms.Normalize((0.1307,), (0.3081,))
             ])
     dataset1 = datasets.MNIST(args.data_path, train=True, download=True,
                        transform=transform)

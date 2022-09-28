@@ -124,7 +124,7 @@ def process_layers(layers, model, train_loader, test_loader,
             layer.update()
             
             old_weight = layer.weight.clone().detach()
-            params = layer.prox_weight.reshape(layer.weight.shape)
+            params = layer.prox_weight.reshape(layer.weight.shape).clone().detach()
             layer.weight = nn.Parameter(params)
             print (f"Prox {lipr_epoch} Proj {proj_epoch} Layer Lip {layer.lipschitz().item():.2f}")
             test(args, model, device, test_loader, criterion)

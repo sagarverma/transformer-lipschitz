@@ -36,100 +36,45 @@ def data_loaders(data_path, data, batch_size, test_batch_size,
         os.makedirs(data_path)
 
     if data == 'cifar10': 
-        if augmentation and normalization:
-            trainset_transforms = transforms.Compose([
-                transforms.RandomCrop(32, padding=4),
-                transforms.RandomHorizontalFlip(),
-                transforms.ToTensor(),
-                transforms.Normalize((0.485, 0.456, 0.406), (0.225, 0.225, 0.225))])
-            trainset = datasets.CIFAR10(root=data_path, train=True, download=True, transform=trainset_transforms)
-            testset = datasets.CIFAR10(root=data_path, train=False, download=True, transform=transforms.Compose([
-                transforms.ToTensor(),
-                transforms.Normalize((0.485, 0.456, 0.406), (0.225, 0.225, 0.225))]))
-            
-        elif augmentation and not(normalization):
-            trainset_transforms = transforms.Compose([
-                transforms.RandomCrop(32, padding=4),
-                transforms.RandomHorizontalFlip(),
-                transforms.ToTensor()])
-            trainset = datasets.CIFAR10(root=data_path, train=True, download=True, transform=trainset_transforms)
-            testset = datasets.CIFAR10(root=data_path, train=False, download=True, transform=transforms.Compose([
-                transforms.ToTensor()]))
-            
-        else:
-            trainset = datasets.CIFAR10(root=data_path, train=True, download=True, transform=transforms.ToTensor())
-            testset = datasets.CIFAR10(root=data_path, train=False, download=True, transform=transforms.ToTensor())
-
+        trainset_transforms = transforms.Compose([
+            transforms.RandomCrop(32, padding=4),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            transforms.Normalize((0.485, 0.456, 0.406), (0.225, 0.225, 0.225))])
+        trainset = datasets.CIFAR10(root=data_path, train=True, download=True, transform=trainset_transforms)
+        testset = datasets.CIFAR10(root=data_path, train=False, download=True, transform=transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.485, 0.456, 0.406), (0.225, 0.225, 0.225))]))
+    
     if data == 'cifar100':
-        if augmentation and normalization:
-            trainset_transforms = transforms.Compose([
-                transforms.RandomCrop(32, padding=4),
-                transforms.RandomHorizontalFlip(),
-                transforms.ToTensor(),
-                transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761))])
-            trainset = datasets.CIFAR10(root=data_path, train=True, download=True, transform=trainset_transforms)
-            testset = datasets.CIFAR10(root=data_path, train=False, download=True, transform=transforms.Compose([
-                transforms.ToTensor(),
-                transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761))]))
-            
-        elif augmentation and not(normalization):
-            trainset_transforms = transforms.Compose([
-                transforms.RandomCrop(32, padding=4),
-                transforms.RandomHorizontalFlip(),
-                transforms.ToTensor()])
-            trainset = datasets.CIFAR100(root=data_path, train=True, download=True, transform=trainset_transforms)
-            testset = datasets.CIFAR100(root=data_path, train=False, download=True, transform=transforms.Compose([
-                transforms.ToTensor()]))
-            
-        else:
-            trainset = datasets.CIFAR100(root=data_path, train=True, download=True, transform=transforms.ToTensor())
-            testset = datasets.CIFAR100(root=data_path, train=False, download=True, transform=transforms.ToTensor())
+        trainset_transforms = transforms.Compose([
+            transforms.RandomCrop(32, padding=4),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761))])
+        trainset = datasets.CIFAR10(root=data_path, train=True, download=True, transform=trainset_transforms)
+        testset = datasets.CIFAR10(root=data_path, train=False, download=True, transform=transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761))]))
+        
+    if data == 'mnist':
+        trainset = datasets.MNIST(root=data_path, train=True, download=True, transform=transforms.ToTensor())
+        testset = datasets.MNIST(root=data_path, train=False, download=True, transform=transforms.ToTensor())
         
     if data == 'mnist':
         trainset = datasets.MNIST(root=data_path, train=True, download=True, transform=transforms.ToTensor())
         testset = datasets.MNIST(root=data_path, train=False, download=True, transform=transforms.ToTensor())
     
     if data == 'tinyimagenet':
-        if augmentation and normalization:
-            trainset_transforms = transforms.Compose([
-                    transforms.RandomCrop(64, padding=4),
-                    transforms.RandomHorizontalFlip(),
-                    transforms.ToTensor(),
-                    transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])])
-            trainset = datasets.ImageFolder(root=f'{data_path}/tiny-imagenet-200/train', transform=trainset_transforms)
-            testset = datasets.ImageFolder(root=f'{data_path}/tiny-imagenet-200/val', transform=transforms.Compose([
-                    transforms.ToTensor(),
-                    transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])]))
-            
-        elif not augmentation and normalization:
-            trainset_transforms = transforms.Compose([
-                    transforms.RandomHorizontalFlip(),
-                    transforms.ToTensor(),
-                    transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])])
-            testset_transforms = transforms.Compose([
-                    transforms.ToTensor()])
-            trainset = datasets.ImageFolder(root=f'{data_path}/tiny-imagenet-200/train', transform=trainset_transforms)
-            testset = datasets.ImageFolder(root=f'{data_path}/tiny-imagenet-200/val', transform=testset_transforms)
-            
-        elif augmentation and not normalization:
-            trainset_transforms = transforms.Compose([
-                    transforms.RandomCrop(64, padding=4),
-                    transforms.RandomHorizontalFlip(),
-                    transforms.ToTensor()])
-            testset_transforms = transforms.Compose([
-                    transforms.ToTensor()])
-            trainset = datasets.ImageFolder(root=f'{data_path}/tiny-imagenet-200/train', transform=trainset_transforms)
-            testset = datasets.ImageFolder(root=f'{data_path}/tiny-imagenet-200/val', transform=testset_transforms)
-            
-        elif not augmentation and not normalization:
-            trainset_transforms = transforms.Compose([
-                    transforms.RandomHorizontalFlip(),
-                    transforms.ToTensor()])
-            testset_transforms = transforms.Compose([
-                    transforms.ToTensor()])
-            trainset = datasets.ImageFolder(root=f'{data_path}/tiny-imagenet-200/train', transform=trainset_transforms)
-            testset = datasets.ImageFolder(root=f'{data_path}/tiny-imagenet-200/val', transform=testset_transforms)
-
+        trainset_transforms = transforms.Compose([
+                transforms.RandomCrop(64, padding=4),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])])
+        trainset = datasets.ImageFolder(root=f'{data_path}/tiny-imagenet-200/train', transform=trainset_transforms)
+        testset = datasets.ImageFolder(root=f'{data_path}/tiny-imagenet-200/val', transform=transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])]))
 
     data_loader  = torch.utils.data.DataLoader(dataset=MyDataset(trainset),
                                               batch_size=batch_size,

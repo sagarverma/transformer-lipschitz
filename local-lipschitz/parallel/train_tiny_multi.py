@@ -56,7 +56,11 @@ if __name__ == "__main__":
     
     utils.seed_torch(args.seed)
 
-    train_loader, test_loader = data_load.data_loaders(args.data, args.batch_size, args.test_batch_size, augmentation=args.augmentation, normalization=args.normalization, drop_last=args.drop_last, shuffle=args.shuffle)
+    train_loader, test_loader = data_load.data_loaders(args.data_path, args.data, 
+                                args.batch_size, args.test_batch_size, 
+                                augmentation=args.augmentation, 
+                                normalization=args.normalization, 
+                                drop_last=args.drop_last, shuffle=args.shuffle)
         
     best_err = 1
     err = 1
@@ -147,10 +151,12 @@ if __name__ == "__main__":
             _ = utils.evaluate(test_loader, model, t, test_log, args.verbose)
         elif args.warmup <= t:
             st = time.time()
-            u_list, u_train, robust_losses_train, robust_errors_train, losses_train, errors_train, sparse_loss_train = Local.train(train_loader, model, opt, epsilon, kappa, t, train_log, args.verbose, args, u_list, u_train, global_rank)
+            train_out = Local.train(train_loader, model, opt, epsilon, kappa, t, train_log, args.verbose, args, u_list, u_train, global_rank, data='tinyimagenet')
+            u_list, u_train, robust_losses_train, robust_errors_train, losses_train, errors_train, sparse_loss_train = train_out
             print('Taken', time.time()-st, 's/epoch')
             
-            u_test, err, robust_losses_test, losses_test, errors_test, sparse_loss_test = Local.evaluate(test_loader, model, epsilon_next, t, test_log, args.verbose, args, u_list, u_test, global_rank)
+            val_out = Local.evaluate(test_loader, model, epsilon_next, t, test_log, args.verbose, args, u_list, u_test, global_rank, data='tinyimagenet')
+            u_test, err, robust_losses_test, losses_test, errors_test, sparse_loss_test = val_out
             torch.cuda.empty_cache()
                        
         if args.lr_scheduler == 'step': 
@@ -174,20 +180,20 @@ if __name__ == "__main__":
                         'err' : best_err,
                         'epoch' : t,
                         'optimizer' : opt.state_dict()
-                        }, args.prefix + "_best.pth")
+                        }, f"{args.weight_path}/LocalLip_TinyImageNet_{args.model}.pt")
 
-            torch.save({ 
-                'state_dict': model.module.state_dict(),
-                'err' : err,
-                'epoch' : t,
-                'optimizer' : opt.state_dict()
-                }, args.prefix + "_checkpoint.pth")  
+        torch.save({ 
+            'state_dict': model.module.state_dict(),
+            'err' : err,
+            'epoch' : t,
+            'optimizer' : opt.state_dict()
+            }, f"{args.weight_path}/LocalLip_TinyImageNet_{args.model}_checkpoint.pt")   
 
     args.print = True
     torch.cuda.synchronize()
     
     model_eval = utils.select_model(args.data, args.model, args.init)
-    aa = torch.load(args.prefix + "_best.pth", map_location="cpu")
+    aa = torch.load(f"{args.weight_path}/LocalLip_TinyImageNet_{args.model}.pt", map_location="cpu")
     model_eval.load_state_dict(aa['state_dict'])
     model_eval = DistributedDataParallel(model_eval)
     print('std testing ...')
@@ -195,5 +201,6 @@ if __name__ == "__main__":
     print('pgd testing ...')
     pgd_err = utils.evaluate_pgd(test_loader, model_eval, args)
     print('verification testing ...')
-    u_test, last_err, robust_losses_test, losses_test, errors_test, sparse_loss_test = Local.evaluate(test_loader, model_eval, args.epsilon, t, test_log, args.verbose, args, u_list, u_test, global_rank)  
+    val_out = Local.evaluate(test_loader, model_eval, args.epsilon, t, test_log, args.verbose, args, u_list, u_test, global_rank, data='tinyimagenet')  
+    u_test, last_err, robust_losses_test, losses_test, errors_test, sparse_loss_test = val_out
     print('Best model evaluation:', std_err, pgd_err, last_err)

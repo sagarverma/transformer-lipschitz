@@ -158,9 +158,9 @@ def select_model(data, m, init):
         if m=='8c2f_relux':
             model = cifar100_relux().cuda() 
     elif data=='tinyimagenet':
-        if m == 'tinyimagenet_relux':
+        if m == '8c2f_relux':
             model = tinyimagenet_relux(init=init).cuda()
-        elif m == 'tiny_clmaxmin':
+        elif m == '8c2f_clmaxmin':
             model = tinyimagenet_clmaxmin().cuda()
     return model
 

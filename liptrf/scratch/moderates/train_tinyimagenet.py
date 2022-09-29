@@ -134,14 +134,16 @@ def main():
                     transforms.RandomCrop(64, padding=4),
                     transforms.RandomHorizontalFlip(),
                     transforms.ToTensor(),
-                    transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])])
+                    # transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
+                    ])
     trainset = datasets.ImageFolder(root=f'{args.data_path}/tiny-imagenet-200/train', transform=transform_train)
     train_loader = torch.utils.data.DataLoader(
         trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
 
     transform_test = transforms.Compose([
                     transforms.ToTensor(),
-                    transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])])
+                    # transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
+                    ])
     testset = datasets.ImageFolder(root=f'{args.data_path}/tiny-imagenet-200/val', transform=transform_test)
     test_loader = torch.utils.data.DataLoader(
         testset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)

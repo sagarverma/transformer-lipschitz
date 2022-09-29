@@ -22,7 +22,7 @@ import torch.distributed as dist
 import torch.utils.data.distributed
 
 if __name__ == "__main__":
-    args = utils.argparser()
+    args = utils.argparser(data='tinyimagenet')
     print(datetime.now())
     print(args)
     test_log = open("test.log", "w")
@@ -49,7 +49,10 @@ if __name__ == "__main__":
         'world_size', args.world_size)    
     
     utils.seed_torch(args.seed)
-    _, test_loader = data_load.data_loaders(args.data, args.batch_size, args.test_batch_size, augmentation=args.augmentation, normalization=args.normalization, drop_last=args.drop_last, shuffle=args.shuffle)
+    _, test_loader = data_load.data_loaders(args.data_path, args.data, args.batch_size, 
+                    args.test_batch_size, augmentation=args.augmentation, 
+                    normalization=args.normalization, drop_last=args.drop_last, 
+                    shuffle=args.shuffle)
     
     model = utils.select_model(args.data, args.model, args.init)
     
@@ -60,10 +63,11 @@ if __name__ == "__main__":
     
     model = DistributedDataParallel(model)
     print('std testing ...')
-    # std_err = utils.evaluate(test_loader, model, args.epochs, test_log, args.verbose, args)
+    std_err = utils.evaluate(test_loader, model, args.epochs, test_log, args.verbose, args)
     print('pgd testing ...')
-    # pgd_err = utils.evaluate_pgd(test_loader, model, args)
+    pgd_err = utils.evaluate_pgd(test_loader, model, args)
     print('verification testing ...')
-    _, last_err, robust_losses_test, losses_test, errors_test, sparse = Local.evaluate(test_loader, model, args.epsilon, args.epochs, test_log, args.verbose, args, u_list, u_test, global_rank, save_u=False)  
+    val_out = Local.evaluate(test_loader, model, args.epsilon, args.epochs, test_log, args.verbose, args, u_list, u_test, global_rank, data='tinyimagenet')  
+    u_test, last_err, robust_losses_test, losses_test, errors_test, sparse_loss_test = val_out
     print('Best model evaluation:', std_err, pgd_err, last_err)
     

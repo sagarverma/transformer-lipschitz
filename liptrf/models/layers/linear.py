@@ -74,6 +74,7 @@ class LinearX(nn.Module):
         wt_nz = wt.flatten()
         wt_nz = wt_nz[torch.nonzero(wt_nz)]
         wt = wt - torch.quantile(wt_nz, self.lc_gamma)
+        print (torch.nonzero((wt > 0).flatten()).shape, wt.shape)
         self.prox_weight = ((wt * (wt > 0)) * torch.sign(self.weight_t)).clone().detach()
         
         self.proj_weight_0 = (2 * self.prox_weight - self.weight_t).clone().detach()

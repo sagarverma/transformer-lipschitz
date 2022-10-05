@@ -277,7 +277,8 @@ def main():
         for layer in model.modules():
             if isinstance(layer, Conv2dX) or isinstance(layer, LinearX):
                 layers.append(layer)
-
+                # break
+                
         print_nonzeros(model)
         process_layers(layers, model, train_loader, test_loader, 
                         criterion, optimizer, args, device)

@@ -7,6 +7,7 @@ import time
 import warnings
 import io
 import json 
+from tqdm import tqdm 
 
 import cv2
 from PIL import Image

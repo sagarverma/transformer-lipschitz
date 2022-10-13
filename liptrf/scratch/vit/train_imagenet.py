@@ -8,7 +8,9 @@ import warnings
 import io
 import json 
 
+import cv2
 from PIL import Image
+import numpy as np
 import timm 
 import torch
 import torch.nn as nn
@@ -22,6 +24,9 @@ import torch.utils.data.distributed
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import webdataset as wds
+
+from advertorch.attacks import L2PGDAttack
+from advertorch.context import ctx_noparamgrad_and_eval
 
 from liptrf.models.vit import ViT
 
@@ -226,6 +231,10 @@ def main_worker(gpu, ngpus_per_node, args):
         validate(val_loader, model, criterion, args)
         return
 
+    if args.attack:
+        evaluate_pgd(test_loader, model, epsilon=36/255, niter=100, alpha=36/255/4, device=device)
+        return 
+
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
             sampler = getattr(train_loader, "sampler", None)
@@ -355,6 +364,37 @@ def make_val_loader_wds(args):
         # but some frameworks care about it.
         val_loader.length = number_of_batches
     return val_loader
+
+def evaluate_pgd(args, model, epsilon, niter, alpha, device):
+    val_transform = make_val_transform(args)
+
+    model.eval()
+    correct = 0
+    print (epsilon, niter, alpha)
+
+    adversary = L2PGDAttack(
+        model, loss_fn=nn.CrossEntropyLoss(reduction="sum"), eps=epsilon, 
+        nb_iter=niter, eps_iter=alpha, rand_init=True, clip_min=0.0, 
+        clip_max=1.0, targeted=False)
+
+    for class_id in tqdm(class_map.keys()):
+        n1, n2 = class_map[class_id]
+        img = cv2.imread(f"./imagenet-sample-images/{n1}_{n2}.JPEG")
+        img = cv2.resize(img, (224, 224))
+        X = torch.from_numpy(img)
+        y = torch.tensor(int(class_id))
+        X, y = X.to(device), y.to(device)
+        with ctx_noparamgrad_and_eval(model):
+            X_pgd = adversary.perturb(X, y)
+            
+        out = model(X_pgd)
+        pred = out.argmax(dim=1, keepdim=True)
+        correct += pred.eq(y.view_as(pred)).sum().item()
+        X_pgd = X_pgd.data.cpu().numpy()
+        cv2.imwrite(f"attacks/{args.arch}/{n1}_{n2}_{class_id}_{pred.item()}.JPEG", X_pgd)
+    print(f'PGD Accuracy {100.*correct/1000:.2f}')
+
+    return 100.*correct/ 1000
 
 
 def train(train_loader, model, criterion, optimizer, scheduler, epoch, args):

@@ -30,7 +30,7 @@ from advertorch.attacks import L2PGDAttack
 from advertorch.context import ctx_noparamgrad_and_eval
 
 from liptrf.models.vit import ViT
-
+from liptrf.utils.evaluate import evaluate_pgd
 
 fin = open('./imagenet-sample-images/imagenet_class_index.json', 'r')
 class_map = json.load(fin)
@@ -238,7 +238,8 @@ def main_worker(gpu, ngpus_per_node, args):
         if not os.path.exists(f"attacks/{args.arch}"):
             os.makedirs(f"attacks/{args.arch}") 
 
-        evaluate_pgd(args, model, epsilon=36/255, niter=10, alpha=36/255/4, device=args.gpu)
+        evaluate_pgd(val_loader, model, epsilon=36/255, niter=10, alpha=36/255/4, device=args.gpu)
+        evaluate_pgd_save(args, model, epsilon=36/255, niter=10, alpha=36/255/4, device=args.gpu)
         return 
 
     for epoch in range(args.start_epoch, args.epochs):
@@ -371,7 +372,7 @@ def make_val_loader_wds(args):
         val_loader.length = number_of_batches
     return val_loader
 
-def evaluate_pgd(args, model, epsilon, niter, alpha, device):
+def evaluate_pgd_save(args, model, epsilon, niter, alpha, device):
     val_transform = make_val_transform(args)
 
     model.eval()

@@ -82,6 +82,8 @@ parser.add_argument('--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
 parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
                     help='evaluate model on validation set')
+parser.add_argument('--atk', '--attack', dest='attack', action='store_true',
+                    help='attack model on validation set')
 parser.add_argument('--pretrained', dest='pretrained', action='store_true',
                     help='use pre-trained model')
 parser.add_argument('--world-size', default=-1, type=int,
@@ -232,7 +234,7 @@ def main_worker(gpu, ngpus_per_node, args):
         return
 
     if args.attack:
-        evaluate_pgd(test_loader, model, epsilon=36/255, niter=100, alpha=36/255/4, device=device)
+        evaluate_pgd(test_loader, model, epsilon=36/255, niter=10, alpha=36/255/4, device=device)
         return 
 
     for epoch in range(args.start_epoch, args.epochs):

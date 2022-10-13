@@ -234,6 +234,9 @@ def main_worker(gpu, ngpus_per_node, args):
         return
 
     if args.attack:
+        if not os.path.exists(f"attacks/{args.arch}"):
+            os.makedirs(f"attacks/{args.arch}") 
+
         evaluate_pgd(test_loader, model, epsilon=36/255, niter=10, alpha=36/255/4, device=device)
         return 
 

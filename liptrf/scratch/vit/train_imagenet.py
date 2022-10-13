@@ -387,16 +387,16 @@ def evaluate_pgd(args, model, epsilon, niter, alpha, device):
         n1, n2 = class_map[class_id]
         img = cv2.imread(f"./imagenet-sample-images/{n1}_{n2}.JPEG")
         img = cv2.resize(img, (224, 224))
-        X = torch.from_numpy(img).float()
-        y = torch.tensor(int(class_id)).long()
+        X = torch.from_numpy(img).float().unsqueeze(0)
+        y = torch.tensor(int(class_id)).long().unsqueeze(0)
         X, y = X.to(device), y.to(device)
         with ctx_noparamgrad_and_eval(model):
             X_pgd = adversary.perturb(X, y)
             
         out = model(X_pgd)
-        pred = out.argmax(dim=1, keepdim=True)
+        pred = out.argmax(dim=1, keepdim=True).squeeze()
         correct += pred.eq(y.view_as(pred)).sum().item()
-        X_pgd = X_pgd.data.cpu().numpy()
+        X_pgd = X_pgd.data.cpu().numpy().squeeze()
         cv2.imwrite(f"attacks/{args.arch}/{n1}_{n2}_{class_id}_{pred.item()}.JPEG", X_pgd.astype(np.uint8))
     print(f'PGD Accuracy {100.*correct/1000:.2f}')
 

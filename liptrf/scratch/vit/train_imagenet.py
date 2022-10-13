@@ -386,7 +386,7 @@ def evaluate_pgd(args, model, epsilon, niter, alpha, device):
     for class_id in tqdm(class_map.keys()):
         n1, n2 = class_map[class_id]
         img = cv2.imread(f"./imagenet-sample-images/{n1}_{n2}.JPEG")
-        img = cv2.resize(img, (224, 224))
+        img = cv2.resize(img, (224, 224)).transpose(2, 0, 1)
         X = torch.from_numpy(img).float().unsqueeze(0)
         y = torch.tensor(int(class_id)).long().unsqueeze(0)
         X, y = X.to(device), y.to(device)

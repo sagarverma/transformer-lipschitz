@@ -396,7 +396,7 @@ def evaluate_pgd(args, model, epsilon, niter, alpha, device):
         out = model(X_pgd)
         pred = out.argmax(dim=1, keepdim=True).squeeze()
         correct += pred.eq(y.view_as(pred)).sum().item()
-        X_pgd = X_pgd.data.cpu().numpy().squeeze()
+        X_pgd = X_pgd.squeeze().data.cpu().numpy().copy().transpose(1, 2, 0)
         cv2.imwrite(f"attacks/{args.arch}/{n1}_{n2}_{class_id}_{pred.item()}.JPEG", X_pgd.astype(np.uint8))
     print(f'PGD Accuracy {100.*correct/1000:.2f}')
 

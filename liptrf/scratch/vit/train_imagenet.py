@@ -387,8 +387,8 @@ def evaluate_pgd(args, model, epsilon, niter, alpha, device):
         n1, n2 = class_map[class_id]
         img = cv2.imread(f"./imagenet-sample-images/{n1}_{n2}.JPEG")
         img = cv2.resize(img, (224, 224))
-        X = torch.from_numpy(img)
-        y = torch.tensor(int(class_id))
+        X = torch.from_numpy(img).float()
+        y = torch.tensor(int(class_id)).long()
         X, y = X.to(device), y.to(device)
         with ctx_noparamgrad_and_eval(model):
             X_pgd = adversary.perturb(X, y)

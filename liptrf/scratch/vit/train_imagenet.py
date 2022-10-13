@@ -46,6 +46,7 @@ parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 parser.add_argument('--data', metavar='DIR', default='./data',
                     help='path to dataset')
 parser.add_argument('--shuffle', type=int, default=1000, help='shuffle buffer size for WebDataset')
+parser.add_argument('--arch', type=str, required=True)
 parser.add_argument('--trainshards', default='../ImageNet1K/train/train-{0000..1878}.tar', help='path/URL for ImageNet shards',
 )
 parser.add_argument('--valshards', default='../ImageNet1K/val/val-{00..48}.tar', help='path/URL for ImageNet shards',

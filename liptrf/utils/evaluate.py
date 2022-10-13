@@ -2,6 +2,7 @@ from math import ceil
 import numpy as np
 import torch
 import torch.nn as nn 
+from tqdm import tqdm 
 
 from advertorch.attacks import L2PGDAttack
 from advertorch.context import ctx_noparamgrad_and_eval
@@ -19,7 +20,7 @@ def evaluate_pgd(loader, model, epsilon, niter, alpha, device):
         nb_iter=niter, eps_iter=alpha, rand_init=True, clip_min=0.0, 
         clip_max=1.0, targeted=False)
 
-    for i, (X,y) in enumerate(loader):
+    for i, (X,y) in tqdm(enumerate(loader)):
         X, y = X.to(device), y.to(device)
         with ctx_noparamgrad_and_eval(model):
             X_pgd = adversary.perturb(X, y)

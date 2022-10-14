@@ -237,7 +237,7 @@ def main_worker(gpu, ngpus_per_node, args):
         if not os.path.exists(f"attacks/{args.arch}"):
             os.makedirs(f"attacks/{args.arch}") 
 
-        evaluate_pgd(val_loader, model, epsilon=36/255, niter=10, alpha=36/255/4, args)
+        evaluate_pgd(val_loader, model, epsilon=36/255, niter=10, alpha=36/255/4, args=args)
         eturn 
 
     for epoch in range(args.start_epoch, args.epochs):

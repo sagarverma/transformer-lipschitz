@@ -234,8 +234,8 @@ def main_worker(gpu, ngpus_per_node, args):
         return
 
     if args.attack:
-        if not os.path.exists(f"attacks/{args.arch}"):
-            os.makedirs(f"attacks/{args.arch}") 
+        if not os.path.exists(f"/data-nfs/sagar/certify-robot-learning/attacks/{args.arch}"):
+            os.makedirs(f"/data-nfs/sagar/certify-robot-learning/attacks/{args.arch}") 
 
         evaluate_pgd(val_loader, model, epsilon=36/255, niter=10, alpha=36/255/4, args=args)
         return 
@@ -391,8 +391,8 @@ def evaluate_pgd(loader, model, epsilon, niter, alpha, args):
         for j in range(X.shape[0]):
             img = X[j].data.cpu().numpy().transpose(1, 2, 0).astype(np.uint8)
             pgd_img = X_pgd[j].data.cpu().numpy().transpose(1, 2, 0).astype(np.uint8)
-            cv2.imwrite(f"attacks/{args.arch}/img_{i}_{j}_{pred[j].item()}.JPEG", pgd_img)
-            cv2.imwrite(f"attacks/{args.arch}/img_{i}_{j}_{y[j].item()}.JPEG", img)
+            cv2.imwrite(f"/data-nfs/sagar/certify-robot-learning/attacks/{args.arch}/img_{i}_{j}_{pred[j].item()}.JPEG", pgd_img)
+            cv2.imwrite(f"/data-nfs/sagar/certify-robot-learning/attacks/{args.arch}/img_{i}_{j}_{y[j].item()}.JPEG", img)
         if i * X.shape[0] > 1000:
             break
     print(f'PGD Accuracy {100.*correct/ (i * X.shape[0]):.2f}')

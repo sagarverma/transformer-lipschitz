@@ -28,11 +28,11 @@ def evaluate_pgd(loader, model, epsilon, niter, alpha, device):
         out = model(X_pgd)
         pred = out.argmax(dim=1, keepdim=True)
         correct += pred.eq(y.view_as(pred)).sum().item()
-        if i * X.shape[0] < 1000:
+        if i * X.shape[0] > 1000:
             break
-    print(f'PGD Accuracy {100.*correct/len(loader.dataset):.2f}')
+    print(f'PGD Accuracy {100.*correct/ (i * X.shape[0]):.2f}')
 
-    return 100.*correct/len(loader.dataset)
+    return 100.*correct/(i * X.shape[0])
 
 
 def vra_sparse(y_true, y_pred):

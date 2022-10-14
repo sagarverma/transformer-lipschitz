@@ -389,8 +389,8 @@ def evaluate_pgd(loader, model, epsilon, niter, alpha, args):
         pred = out.argmax(dim=1, keepdim=True)
         correct += pred.eq(y.view_as(pred)).sum().item()
         for j in range(X.shape[0]):
-            img = X[j].data.cpu().numpy().transpose(1, 2, 0)
-            pgd_img = X_pgd[j].data.cpu().numpy().transpose(1, 2, 0)
+            img = X[j].data.cpu().numpy().transpose(1, 2, 0).astype(np.uint8)
+            pgd_img = X_pgd[j].data.cpu().numpy().transpose(1, 2, 0).astype(np.uint8)
             cv2.imwrite(f"attacks/{args.arch}/img_{i}_{j}_{pred[j].item()}.JPEG", pgd_img)
             cv2.imwrite(f"attacks/{args.arch}/img_{i}_{j}_{y[j].item()}.JPEG", img)
         if i * X.shape[0] > 1000:

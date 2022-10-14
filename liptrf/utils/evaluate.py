@@ -28,6 +28,8 @@ def evaluate_pgd(loader, model, epsilon, niter, alpha, device):
         out = model(X_pgd)
         pred = out.argmax(dim=1, keepdim=True)
         correct += pred.eq(y.view_as(pred)).sum().item()
+        if i * X.shape[0] < 1000:
+            break
     print(f'PGD Accuracy {100.*correct/len(loader.dataset):.2f}')
 
     return 100.*correct/len(loader.dataset)

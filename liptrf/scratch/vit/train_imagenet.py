@@ -30,7 +30,6 @@ from advertorch.attacks import L2PGDAttack
 from advertorch.context import ctx_noparamgrad_and_eval
 
 from liptrf.models.vit import ViT
-from liptrf.utils.evaluate import evaluate_pgd
 
 fin = open('./imagenet-sample-images/imagenet_class_index.json', 'r')
 class_map = json.load(fin)
@@ -238,9 +237,8 @@ def main_worker(gpu, ngpus_per_node, args):
         if not os.path.exists(f"attacks/{args.arch}"):
             os.makedirs(f"attacks/{args.arch}") 
 
-        evaluate_pgd(val_loader, model, epsilon=36/255, niter=10, alpha=36/255/4, device=args.gpu)
-        evaluate_pgd_save(args, model, epsilon=36/255, niter=10, alpha=36/255/4, device=args.gpu)
-        return 
+        evaluate_pgd(val_loader, model, epsilon=36/255, niter=10, alpha=36/255/4, args)
+        eturn 
 
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
@@ -372,9 +370,7 @@ def make_val_loader_wds(args):
         val_loader.length = number_of_batches
     return val_loader
 
-def evaluate_pgd_save(args, model, epsilon, niter, alpha, device):
-    val_transform = make_val_transform(args)
-
+def evaluate_pgd(loader, model, epsilon, niter, alpha, args):
     model.eval()
     correct = 0
     print (epsilon, niter, alpha)
@@ -384,24 +380,23 @@ def evaluate_pgd_save(args, model, epsilon, niter, alpha, device):
         nb_iter=niter, eps_iter=alpha, rand_init=True, clip_min=0.0, 
         clip_max=1.0, targeted=False)
 
-    for class_id in tqdm(class_map.keys()):
-        n1, n2 = class_map[class_id]
-        img = cv2.imread(f"./imagenet-sample-images/{n1}_{n2}.JPEG")
-        img = cv2.resize(img, (224, 224)).transpose(2, 0, 1).copy()
-        X = torch.from_numpy(img).float().unsqueeze(0)
-        y = torch.tensor(int(class_id)).long().unsqueeze(0)
-        X, y = X.to(device), y.to(device)
+    for i, (X,y) in tqdm(enumerate(loader)):
+        X, y = X.to(args.gpu), y.to(args.gpu)
         with ctx_noparamgrad_and_eval(model):
             X_pgd = adversary.perturb(X, y)
             
         out = model(X_pgd)
-        pred = out.argmax(dim=1, keepdim=True).squeeze()
+        pred = out.argmax(dim=1, keepdim=True)
         correct += pred.eq(y.view_as(pred)).sum().item()
-        X_pgd = X_pgd.squeeze().data.cpu().numpy().copy().transpose(1, 2, 0)
-        cv2.imwrite(f"attacks/{args.arch}/{n1}_{n2}_{class_id}_{pred.item()}.JPEG", X_pgd.astype(np.uint8))
-    print(f'PGD Accuracy {100.*correct/1000:.2f}')
+        for j in range(X.shape[0]):
+            img = X[j].data.cpu().numpy().transpose(1, 2, 0)
+            pgd_img = X_pgd[j].data.cpu().numpy().transpose(1, 2, 0)
+            cv2.imwrite(f"attacks/{args.arch}/img_{i}_{j}_{pred[j].item()}_{correct[j].item()}.JPEG")
+        if i * X.shape[0] > 1000:
+            break
+    print(f'PGD Accuracy {100.*correct/ (i * X.shape[0]):.2f}')
 
-    return 100.*correct/ 1000
+    return 100.*correct/(i * X.shape[0])
 
 
 def train(train_loader, model, criterion, optimizer, scheduler, epoch, args):

@@ -382,6 +382,7 @@ def evaluate_pgd(loader, model, epsilon, niter, alpha, args):
 
     for i, (X,y) in tqdm(enumerate(loader)):
         X, y = X.to(args.gpu), y.to(args.gpu)
+        print (X.min(), X.max())
         with ctx_noparamgrad_and_eval(model):
             X_pgd = adversary.perturb(X, y)
             

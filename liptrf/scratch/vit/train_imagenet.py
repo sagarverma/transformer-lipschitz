@@ -391,7 +391,7 @@ def evaluate_pgd(loader, model, epsilon, niter, alpha, args):
         for j in range(X.shape[0]):
             img = X[j].data.cpu().numpy().transpose(1, 2, 0)
             pgd_img = X_pgd[j].data.cpu().numpy().transpose(1, 2, 0)
-            cv2.imwrite(f"attacks/{args.arch}/img_{i}_{j}_{pred[j].item()}_{correct[j].item()}.JPEG")
+            cv2.imwrite(f"attacks/{args.arch}/img_{i}_{j}_{pred[j].item()}_{y[j].item()}.JPEG")
         if i * X.shape[0] > 1000:
             break
     print(f'PGD Accuracy {100.*correct/ (i * X.shape[0]):.2f}')

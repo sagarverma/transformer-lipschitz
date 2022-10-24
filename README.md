@@ -1,4 +1,4 @@
-# CertViT
+# Code for Certification of Pre-trained Visual Transformers. 
 
 ## Prerequisites & Installation 
 

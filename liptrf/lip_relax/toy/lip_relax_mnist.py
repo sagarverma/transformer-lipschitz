@@ -277,7 +277,7 @@ def main():
     if args.task == 'constrain':
         layers = []
         for layer in model.modules():
-            if isinstance(layer, Conv2dX) or isinstance(layer, LinearX):
+            if isinstance(layer, LinearX):
                 layers.append(layer)
                 break
 

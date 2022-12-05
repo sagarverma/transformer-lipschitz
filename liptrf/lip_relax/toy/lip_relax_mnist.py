@@ -96,7 +96,7 @@ def process_layers(layers, model, train_loader, test_loader,
 
     test(args, model, device, test_loader, criterion)
     for layer in layers:
-        print (layer.lipschitz().item())
+        print (layer.lipschitz().item(), torch.linalg.norm(layer.weight, 1))
         layer.weight_t = layer.weight.clone().detach()
         if isinstance(layer, Conv2dX):
             layer.weight_t = layer.weight_t.view(layer.weight_t.size(0), -1)
@@ -126,7 +126,7 @@ def process_layers(layers, model, train_loader, test_loader,
             old_weight = layer.weight.clone().detach()
             params = layer.prox_weight.reshape(layer.weight.shape).clone().detach()
             layer.weight = nn.Parameter(params)
-            print (f"Prox {lipr_epoch} Proj {proj_epoch} Layer Lip {layer.lipschitz().item():.2f}")
+            print (f"Prox {lipr_epoch}, Proj {proj_epoch}, Layer Lip {layer.lipschitz().item():.2f}, Layer L1-Norm {torch.linalg.norm(layer.weight, 1)}")
             test(args, model, device, test_loader, criterion)
             layer.weight = nn.Parameter(old_weight)
             if layer.lc <= 1:
@@ -279,6 +279,7 @@ def main():
         for layer in model.modules():
             if isinstance(layer, Conv2dX) or isinstance(layer, LinearX):
                 layers.append(layer)
+                break
 
         print_nonzeros(model)
         process_layers(layers, model, train_loader, test_loader, 

@@ -125,7 +125,7 @@ def process_layers(layers, model, train_loader, test_loader,
             old_weight = layer.weight.clone().detach()
             params = layer.prox_weight.reshape(layer.weight.shape).clone().detach()
             layer.weight = nn.Parameter(params)
-            print (f"Prox {lipr_epoch} Proj {proj_epoch} Layer Lip {layer.lipschitz().item():.2f}")
+            print (f"Prox {lipr_epoch}, Proj {proj_epoch}, Layer Lip {layer.lipschitz().item():.2f}, Layer L1-Norm {torch.linalg.norm(layer.weight, 'fro')}")
             test(args, model, device, test_loader, criterion)
             layer.weight = nn.Parameter(old_weight)
             # if layer.lc <= 1:
@@ -267,7 +267,7 @@ def main():
             if isinstance(layer, LinearX):
                 layers.append(layer)
                 break 
-                
+
         print_nonzeros(model)
         process_layers(layers, model, train_loader, test_loader, 
                         criterion, optimizer, args, device)
